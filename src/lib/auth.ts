@@ -5,6 +5,7 @@ import { compare } from 'bcryptjs'
 import { db } from '@/lib/db'
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma 7 type mismatch with @auth/prisma-adapter
   adapter: PrismaAdapter(db as any),
   session: { strategy: 'jwt' },

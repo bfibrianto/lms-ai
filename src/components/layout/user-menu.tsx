@@ -1,5 +1,7 @@
 'use client'
 
+import { useTransition } from 'react'
+import { signOut } from 'next-auth/react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   DropdownMenu,
@@ -14,16 +16,23 @@ import { roleLabels } from '@/lib/roles'
 
 interface UserMenuProps {
   user: { name: string; email: string; role: string }
-  signOutAction: () => Promise<void>
 }
 
-export function UserMenu({ user, signOutAction }: UserMenuProps) {
+export function UserMenu({ user }: UserMenuProps) {
+  const [isPending, startTransition] = useTransition()
+
   const initials = user.name
     .split(' ')
     .map((n) => n[0])
     .join('')
     .toUpperCase()
     .slice(0, 2)
+
+  function handleSignOut() {
+    startTransition(() => {
+      signOut({ callbackUrl: '/auth/login' })
+    })
+  }
 
   return (
     <DropdownMenu>
@@ -43,16 +52,13 @@ export function UserMenu({ user, signOutAction }: UserMenuProps) {
           </p>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <form action={signOutAction}>
-            <button
-              type="submit"
-              className="flex w-full items-center gap-2 text-sm"
-            >
-              <LogOut className="h-4 w-4" />
-              Keluar
-            </button>
-          </form>
+        <DropdownMenuItem
+          onClick={handleSignOut}
+          disabled={isPending}
+          className="cursor-pointer text-destructive focus:text-destructive"
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          {isPending ? 'Keluar...' : 'Keluar'}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

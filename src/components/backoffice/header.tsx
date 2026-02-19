@@ -9,10 +9,9 @@ import { MobileSidebar } from './mobile-sidebar'
 
 interface HeaderProps {
   user: { name: string; email: string; role: string }
-  signOutAction: () => Promise<void>
 }
 
-export function Header({ user, signOutAction }: HeaderProps) {
+export function Header({ user }: HeaderProps) {
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-4 lg:px-6">
       <MobileSidebar userRole={user.role} />
@@ -27,7 +26,7 @@ export function Header({ user, signOutAction }: HeaderProps) {
       <div className="ml-auto flex items-center gap-1">
         <NotificationBell count={0} />
         <ThemeToggle />
-        <UserMenu user={user} signOutAction={signOutAction} />
+        <UserMenu user={user} />
       </div>
     </header>
   )

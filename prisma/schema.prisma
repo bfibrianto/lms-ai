@@ -15,6 +15,24 @@ enum Role {
   EMPLOYEE
 }
 
+enum CourseStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum CourseLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum LessonType {
+  VIDEO
+  DOCUMENT
+  TEXT
+}
+
 model User {
   id            String    @id @default(cuid())
   name          String
@@ -29,8 +47,12 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  accounts Account[]
-  sessions Session[]
+  accounts              Account[]
+  sessions              Session[]
+  courses               Course[]               @relation("CourseCreator")
+  enrollments           Enrollment[]
+  trainings             Training[]             @relation("TrainingCreator")
+  trainingRegistrations TrainingRegistration[]
 
   @@map("users")
 }
@@ -73,4 +95,130 @@ model VerificationToken {
 
   @@unique([identifier, token])
   @@map("verification_tokens")
+}
+
+enum EnrollmentStatus {
+  ENROLLED
+  IN_PROGRESS
+  COMPLETED
+  DROPPED
+}
+
+model Course {
+  id          String       @id @default(cuid())
+  title       String
+  description String?      @db.Text
+  thumbnail   String?
+  level       CourseLevel  @default(BEGINNER)
+  status      CourseStatus @default(DRAFT)
+  creatorId   String
+  creator     User         @relation("CourseCreator", fields: [creatorId], references: [id])
+  modules     Module[]
+  enrollments Enrollment[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@map("courses")
+}
+
+model Enrollment {
+  id          String           @id @default(cuid())
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId    String
+  course      Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  status      EnrollmentStatus @default(ENROLLED)
+  progress    Int              @default(0)
+  enrolledAt  DateTime         @default(now())
+  completedAt DateTime?
+  updatedAt   DateTime         @updatedAt
+
+  @@unique([userId, courseId])
+  @@map("enrollments")
+}
+
+enum TrainingType {
+  WORKSHOP
+  SEMINAR
+  BOOTCAMP
+}
+
+enum TrainingStatus {
+  DRAFT
+  OPEN
+  CLOSED
+  COMPLETED
+  CANCELLED
+}
+
+enum RegistrationStatus {
+  REGISTERED
+  ATTENDED
+  ABSENT
+  CANCELLED
+}
+
+model Training {
+  id            String         @id @default(cuid())
+  title         String
+  description   String?        @db.Text
+  type          TrainingType
+  status        TrainingStatus @default(DRAFT)
+  startDate     DateTime
+  endDate       DateTime
+  location      String?
+  onlineUrl     String?
+  capacity      Int?
+  cover         String?
+  creatorId     String
+  creator       User           @relation("TrainingCreator", fields: [creatorId], references: [id])
+  registrations TrainingRegistration[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@map("trainings")
+}
+
+model TrainingRegistration {
+  id           String             @id @default(cuid())
+  userId       String
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trainingId   String
+  training     Training           @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+  status       RegistrationStatus @default(REGISTERED)
+  registeredAt DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@unique([userId, trainingId])
+  @@map("training_registrations")
+}
+
+model Module {
+  id        String   @id @default(cuid())
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title     String
+  order     Int      @default(0)
+  lessons   Lesson[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("modules")
+}
+
+model Lesson {
+  id        String     @id @default(cuid())
+  moduleId  String
+  module    Module     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  title     String
+  type      LessonType @default(TEXT)
+  content   String?    @db.Text
+  videoUrl  String?
+  fileUrl   String?
+  duration  Int?
+  order     Int        @default(0)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@map("lessons")
 }

@@ -18,10 +18,9 @@ import {
 
 interface TopNavProps {
   user: { name: string; email: string; role: string }
-  signOutAction: () => Promise<void>
 }
 
-export function TopNav({ user, signOutAction }: TopNavProps) {
+export function TopNav({ user }: TopNavProps) {
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -58,7 +57,7 @@ export function TopNav({ user, signOutAction }: TopNavProps) {
         {/* Right side */}
         <div className="ml-auto flex items-center gap-1">
           <ThemeToggle />
-          <UserMenu user={user} signOutAction={signOutAction} />
+          <UserMenu user={user} />
           <Button
             variant="ghost"
             size="icon"

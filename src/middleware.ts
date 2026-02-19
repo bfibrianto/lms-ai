@@ -11,7 +11,10 @@ function getDashboardPath(role: string): string {
 }
 
 export async function middleware(request: NextRequest) {
-  const token = await getToken({ req: request })
+  const token = await getToken({
+    req: request,
+    secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
+  })
   const isLoggedIn = !!token
   const { pathname } = request.nextUrl
   const isAuthPage = pathname.startsWith('/auth')

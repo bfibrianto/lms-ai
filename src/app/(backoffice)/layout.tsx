@@ -1,4 +1,4 @@
-import { auth, signOut } from '@/lib/auth'
+import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { isBackofficeRole } from '@/lib/roles'
 import { Sidebar } from '@/components/backoffice/sidebar'
@@ -20,11 +20,6 @@ export default async function BackofficeLayout({
     redirect('/portal/dashboard')
   }
 
-  const signOutAction = async () => {
-    'use server'
-    await signOut({ redirectTo: '/auth/login' })
-  }
-
   const user = {
     name: session.user.name ?? '',
     email: session.user.email ?? '',
@@ -35,7 +30,7 @@ export default async function BackofficeLayout({
     <>
       <Sidebar userRole={user.role} />
       <MainContent>
-        <Header user={user} signOutAction={signOutAction} />
+        <Header user={user} />
         <main className="p-4 text-sm lg:p-6">{children}</main>
       </MainContent>
     </>
