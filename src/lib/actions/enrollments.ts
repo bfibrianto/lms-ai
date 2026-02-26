@@ -4,6 +4,7 @@ import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { revalidatePath } from 'next/cache'
 import { checkAndUnlockNextCourse } from '@/lib/actions/path-enrollments'
+import { generateCertificate } from '@/lib/actions/certificates'
 
 async function requireAuth() {
   const session = await auth()
@@ -195,6 +196,12 @@ export async function completeLesson(
 
     if (isCompleted) {
       await checkAndUnlockNextCourse(user.id!, courseId)
+      // Generate certificate for completing the COURSE
+      await generateCertificate({
+        userId: user.id!,
+        type: 'COURSE',
+        referenceId: courseId,
+      })
     }
 
     revalidatePath(`/portal/my-courses/${courseId}`)

@@ -3,6 +3,7 @@
 import { db } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
+import { generateCertificate } from '@/lib/actions/certificates'
 
 // ─── PORTAL ACTIONS ──────────────────────────────
 
@@ -199,6 +200,13 @@ export async function checkAndUnlockNextCourse(userId: string, completedCourseId
                 await db.pathEnrollment.update({
                     where: { userId_pathId: { userId, pathId: pc.pathId } },
                     data: { completedAt: new Date() }
+                })
+
+                // Generate logic for PATH certificate
+                await generateCertificate({
+                    userId,
+                    type: 'PATH',
+                    referenceId: pc.pathId
                 })
             }
         } else if (currentIndex < allCoursesInPath.length - 1) {

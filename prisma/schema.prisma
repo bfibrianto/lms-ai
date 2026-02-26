@@ -60,6 +60,7 @@ model User {
   trainingRegistrations TrainingRegistration[]
   createdPaths          LearningPath[]         @relation("PathCreator")
   pathEnrollments       PathEnrollment[]
+  certificates          Certificate[]
 
   @@map("users")
 }
@@ -112,20 +113,21 @@ enum EnrollmentStatus {
 }
 
 model Course {
-  id            String       @id @default(cuid())
+  id            String        @id @default(cuid())
   title         String
-  description   String?      @db.Text
+  description   String?       @db.Text
   thumbnail     String?
-  level         CourseLevel  @default(BEGINNER)
-  status        CourseStatus @default(DRAFT)
+  level         CourseLevel   @default(BEGINNER)
+  status        CourseStatus  @default(DRAFT)
   creatorId     String
-  creator       User         @relation("CourseCreator", fields: [creatorId], references: [id])
+  creator       User          @relation("CourseCreator", fields: [creatorId], references: [id])
   modules       Module[]
   enrollments   Enrollment[]
   quizzes       Quiz[]
   learningPaths PathCourse[]
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  certificates  Certificate[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   @@map("courses")
 }
@@ -334,17 +336,18 @@ enum LearningPathStatus {
 }
 
 model LearningPath {
-  id          String             @id @default(cuid())
-  title       String
-  description String?            @db.Text
-  thumbnail   String?
-  status      LearningPathStatus @default(DRAFT)
-  creatorId   String
-  creator     User               @relation("PathCreator", fields: [creatorId], references: [id])
-  courses     PathCourse[]
-  enrollments PathEnrollment[]
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
+  id           String             @id @default(cuid())
+  title        String
+  description  String?            @db.Text
+  thumbnail    String?
+  status       LearningPathStatus @default(DRAFT)
+  creatorId    String
+  creator      User               @relation("PathCreator", fields: [creatorId], references: [id])
+  courses      PathCourse[]
+  enrollments  PathEnrollment[]
+  certificates Certificate[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
 
   @@map("learning_paths")
 }
@@ -375,4 +378,23 @@ model PathEnrollment {
 
   @@unique([userId, pathId])
   @@map("path_enrollments")
+}
+
+// ─── Certificate ────────────────────────────────────────
+
+model Certificate {
+  id       String        @id @default(cuid())
+  userId   String
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId String?
+  course   Course?       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  pathId   String?
+  path     LearningPath? @relation(fields: [pathId], references: [id], onDelete: Cascade)
+  issuedAt DateTime      @default(now())
+  pdfUrl   String?
+
+  // Biar memudahkan jika butuh validasi atau nge-revoked di kemudian hari
+  isValid Boolean @default(true)
+
+  @@map("certificates")
 }
