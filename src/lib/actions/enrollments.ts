@@ -109,6 +109,7 @@ export async function getMyEnrollments(userId: string) {
       id: true,
       status: true,
       progress: true,
+      lastLessonId: true,
       enrolledAt: true,
       completedAt: true,
       course: {
@@ -132,4 +133,107 @@ export async function getEnrolledCourseIds(userId: string): Promise<string[]> {
     select: { courseId: true },
   })
   return enrollments.map((e) => e.courseId)
+}
+
+// ─── Progress Tracking ────────────────────────────────────────
+
+export async function completeLesson(
+  courseId: string,
+  lessonId: string
+): Promise<{ success: boolean; error?: string; progress?: number }> {
+  try {
+    const user = await requireAuth()
+
+    const enrollment = await db.enrollment.findUnique({
+      where: { userId_courseId: { userId: user.id!, courseId } },
+    })
+    if (!enrollment) return { success: false, error: 'Belum terdaftar di kursus ini' }
+
+    // Upsert lesson completion
+    await db.lessonCompletion.upsert({
+      where: {
+        enrollmentId_lessonId: {
+          enrollmentId: enrollment.id,
+          lessonId,
+        },
+      },
+      create: {
+        enrollmentId: enrollment.id,
+        lessonId,
+      },
+      update: {},
+    })
+
+    // Count total lessons in this course
+    const totalLessons = await db.lesson.count({
+      where: { module: { courseId } },
+    })
+
+    // Count completed lessons for this enrollment
+    const completedCount = await db.lessonCompletion.count({
+      where: {
+        enrollmentId: enrollment.id,
+        lesson: { module: { courseId } },
+      },
+    })
+
+    // Calculate progress percentage
+    const progress = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0
+    const isCompleted = progress >= 100
+
+    // Update enrollment
+    await db.enrollment.update({
+      where: { id: enrollment.id },
+      data: {
+        progress,
+        lastLessonId: lessonId,
+        status: isCompleted ? 'COMPLETED' : 'IN_PROGRESS',
+        completedAt: isCompleted ? new Date() : null,
+      },
+    })
+
+    revalidatePath(`/portal/my-courses/${courseId}`)
+    revalidatePath('/portal/my-courses')
+    revalidatePath('/portal/dashboard')
+
+    return { success: true, progress }
+  } catch {
+    return { success: false, error: 'Gagal menandai lesson selesai' }
+  }
+}
+
+export async function getCompletedLessonIds(
+  userId: string,
+  courseId: string
+): Promise<string[]> {
+  const enrollment = await db.enrollment.findUnique({
+    where: { userId_courseId: { userId, courseId } },
+    select: {
+      completions: {
+        select: { lessonId: true },
+      },
+    },
+  })
+  return enrollment?.completions.map((c) => c.lessonId) ?? []
+}
+
+export async function updateLastAccessed(
+  courseId: string,
+  lessonId: string
+): Promise<{ success: boolean }> {
+  try {
+    const user = await requireAuth()
+
+    await db.enrollment.update({
+      where: { userId_courseId: { userId: user.id!, courseId } },
+      data: {
+        lastLessonId: lessonId,
+        status: 'IN_PROGRESS',
+      },
+    })
+
+    return { success: true }
+  } catch {
+    return { success: false }
+  }
 }

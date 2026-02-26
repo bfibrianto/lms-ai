@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition, useCallback, useEffect } from 'react'
 import {
   BookOpen,
   FileText,
@@ -10,10 +10,13 @@ import {
   CheckCircle2,
   PlayCircle,
   ExternalLink,
+  Loader2,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { completeLesson, updateLastAccessed } from '@/lib/actions/enrollments'
+import { toast } from 'sonner'
 
 interface Lesson {
   id: string
@@ -36,7 +39,10 @@ interface CourseModule {
 interface CoursePlayerProps {
   modules: CourseModule[]
   courseTitle: string
+  courseId: string
   progress: number
+  completedLessonIds: string[]
+  lastLessonId: string | null
 }
 
 const lessonTypeIcon: Record<string, React.ElementType> = {
@@ -166,17 +172,55 @@ function LessonViewer({ lesson }: { lesson: Lesson }) {
   )
 }
 
-export function CoursePlayer({ modules, courseTitle, progress }: CoursePlayerProps) {
+export function CoursePlayer({
+  modules,
+  courseTitle,
+  courseId,
+  progress: initialProgress,
+  completedLessonIds: initialCompletedIds,
+  lastLessonId,
+}: CoursePlayerProps) {
   const allLessons = modules.flatMap((m) => m.lessons)
-  const [selectedLessonId, setSelectedLessonId] = useState<string | null>(
-    allLessons[0]?.id ?? null
-  )
+
+  // Resume from last accessed lesson, or first lesson
+  const initialLessonId = lastLessonId && allLessons.some((l) => l.id === lastLessonId)
+    ? lastLessonId
+    : allLessons[0]?.id ?? null
+
+  const [selectedLessonId, setSelectedLessonId] = useState<string | null>(initialLessonId)
   const [expandedModules, setExpandedModules] = useState<Set<string>>(
     new Set(modules.map((m) => m.id))
   )
+  const [completedIds, setCompletedIds] = useState<Set<string>>(
+    new Set(initialCompletedIds)
+  )
+  const [progress, setProgress] = useState(initialProgress)
+  const [isPending, startTransition] = useTransition()
 
   const selectedLesson =
     allLessons.find((l) => l.id === selectedLessonId) ?? null
+
+  const isLessonCompleted = selectedLessonId ? completedIds.has(selectedLessonId) : false
+
+  // Track last accessed lesson when selection changes
+  const handleSelectLesson = useCallback(
+    (lessonId: string) => {
+      setSelectedLessonId(lessonId)
+      // Fire-and-forget to update last accessed
+      updateLastAccessed(courseId, lessonId)
+    },
+    [courseId]
+  )
+
+  // Auto-expand the module containing the last accessed lesson on mount
+  useEffect(() => {
+    if (initialLessonId) {
+      const mod = modules.find((m) => m.lessons.some((l) => l.id === initialLessonId))
+      if (mod) {
+        setExpandedModules((prev) => new Set([...prev, mod.id]))
+      }
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   function toggleModule(moduleId: string) {
     setExpandedModules((prev) => {
@@ -190,25 +234,41 @@ export function CoursePlayer({ modules, courseTitle, progress }: CoursePlayerPro
     })
   }
 
+  function handleCompleteLesson() {
+    if (!selectedLessonId) return
+    startTransition(async () => {
+      const result = await completeLesson(courseId, selectedLessonId)
+      if (result.success) {
+        setCompletedIds((prev) => new Set([...prev, selectedLessonId]))
+        if (result.progress !== undefined) {
+          setProgress(result.progress)
+        }
+        toast.success('Pelajaran ditandai selesai!')
+      } else {
+        toast.error(result.error ?? 'Gagal menandai selesai')
+      }
+    })
+  }
+
   const selectedModuleIdx = modules.findIndex((m) =>
     m.lessons.some((l) => l.id === selectedLessonId)
   )
   const selectedLessonIdx =
     selectedModuleIdx >= 0
       ? modules[selectedModuleIdx].lessons.findIndex(
-          (l) => l.id === selectedLessonId
-        )
+        (l) => l.id === selectedLessonId
+      )
       : -1
 
   function goNext() {
     if (selectedModuleIdx < 0) return
     const currentModule = modules[selectedModuleIdx]
     if (selectedLessonIdx < currentModule.lessons.length - 1) {
-      setSelectedLessonId(currentModule.lessons[selectedLessonIdx + 1].id)
+      handleSelectLesson(currentModule.lessons[selectedLessonIdx + 1].id)
     } else if (selectedModuleIdx < modules.length - 1) {
       const nextModule = modules[selectedModuleIdx + 1]
       if (nextModule.lessons.length > 0) {
-        setSelectedLessonId(nextModule.lessons[0].id)
+        handleSelectLesson(nextModule.lessons[0].id)
         setExpandedModules((prev) => new Set([...prev, nextModule.id]))
       }
     }
@@ -218,13 +278,11 @@ export function CoursePlayer({ modules, courseTitle, progress }: CoursePlayerPro
     if (selectedModuleIdx < 0) return
     if (selectedLessonIdx > 0) {
       const currentModule = modules[selectedModuleIdx]
-      setSelectedLessonId(currentModule.lessons[selectedLessonIdx - 1].id)
+      handleSelectLesson(currentModule.lessons[selectedLessonIdx - 1].id)
     } else if (selectedModuleIdx > 0) {
       const prevModule = modules[selectedModuleIdx - 1]
       if (prevModule.lessons.length > 0) {
-        setSelectedLessonId(
-          prevModule.lessons[prevModule.lessons.length - 1].id
-        )
+        handleSelectLesson(prevModule.lessons[prevModule.lessons.length - 1].id)
       }
     }
   }
@@ -233,7 +291,10 @@ export function CoursePlayer({ modules, courseTitle, progress }: CoursePlayerPro
   const isLast =
     selectedModuleIdx === modules.length - 1 &&
     selectedLessonIdx ===
-      (modules[selectedModuleIdx]?.lessons.length ?? 0) - 1
+    (modules[selectedModuleIdx]?.lessons.length ?? 0) - 1
+
+  const completedCount = completedIds.size
+  const totalLessons = allLessons.length
 
   if (allLessons.length === 0) {
     return (
@@ -253,12 +314,15 @@ export function CoursePlayer({ modules, courseTitle, progress }: CoursePlayerPro
         <div className="border-b px-4 py-3">
           <p className="text-sm font-semibold">Konten Kursus</p>
           <p className="text-xs text-muted-foreground">
-            {allLessons.length} pelajaran · {progress}% selesai
+            {completedCount}/{totalLessons} pelajaran · {progress}% selesai
           </p>
         </div>
         <div className="max-h-[calc(100vh-240px)] overflow-y-auto">
           {modules.map((mod, modIdx) => {
             const isExpanded = expandedModules.has(mod.id)
+            const moduleCompletedCount = mod.lessons.filter((l) =>
+              completedIds.has(l.id)
+            ).length
             return (
               <div key={mod.id}>
                 <button
@@ -274,7 +338,7 @@ export function CoursePlayer({ modules, courseTitle, progress }: CoursePlayerPro
                     {modIdx + 1}. {mod.title}
                   </span>
                   <span className="ml-auto text-xs text-muted-foreground">
-                    {mod.lessons.length}
+                    {moduleCompletedCount}/{mod.lessons.length}
                   </span>
                 </button>
                 {isExpanded && (
@@ -282,10 +346,11 @@ export function CoursePlayer({ modules, courseTitle, progress }: CoursePlayerPro
                     {mod.lessons.map((lesson, lessonIdx) => {
                       const Icon = lessonTypeIcon[lesson.type] ?? BookOpen
                       const isSelected = lesson.id === selectedLessonId
+                      const isCompleted = completedIds.has(lesson.id)
                       return (
                         <button
                           key={lesson.id}
-                          onClick={() => setSelectedLessonId(lesson.id)}
+                          onClick={() => handleSelectLesson(lesson.id)}
                           className={cn(
                             'flex w-full items-center gap-3 py-2.5 pl-10 pr-4 text-left transition-colors',
                             isSelected
@@ -296,19 +361,20 @@ export function CoursePlayer({ modules, courseTitle, progress }: CoursePlayerPro
                           <div
                             className={cn(
                               'flex h-6 w-6 shrink-0 items-center justify-center rounded-full',
-                              isSelected ? 'bg-primary' : 'bg-secondary'
+                              isCompleted
+                                ? 'bg-green-500'
+                                : isSelected
+                                  ? 'bg-primary'
+                                  : 'bg-secondary'
                             )}
                           >
-                            {isSelected ? (
+                            {isCompleted ? (
+                              <CheckCircle2 className="h-3.5 w-3.5 text-white" />
+                            ) : isSelected ? (
                               <PlayCircle className="h-3.5 w-3.5 text-primary-foreground" />
                             ) : (
                               <Icon
-                                className={cn(
-                                  'h-3.5 w-3.5',
-                                  isSelected
-                                    ? 'text-primary-foreground'
-                                    : 'text-muted-foreground'
-                                )}
+                                className="h-3.5 w-3.5 text-muted-foreground"
                               />
                             )}
                           </div>
@@ -316,7 +382,8 @@ export function CoursePlayer({ modules, courseTitle, progress }: CoursePlayerPro
                             <p
                               className={cn(
                                 'truncate text-xs',
-                                isSelected ? 'font-medium' : ''
+                                isSelected ? 'font-medium' : '',
+                                isCompleted && !isSelected ? 'text-muted-foreground line-through' : ''
                               )}
                             >
                               {lessonIdx + 1}. {lesson.title}
@@ -353,6 +420,12 @@ export function CoursePlayer({ modules, courseTitle, progress }: CoursePlayerPro
                 {modules[selectedModuleIdx].title}
               </span>
             )}
+            {isLessonCompleted && (
+              <Badge variant="outline" className="ml-auto gap-1 border-green-500 text-green-600 text-xs">
+                <CheckCircle2 className="h-3 w-3" />
+                Selesai
+              </Badge>
+            )}
           </div>
         )}
 
@@ -368,27 +441,46 @@ export function CoursePlayer({ modules, courseTitle, progress }: CoursePlayerPro
           </div>
         )}
 
-        {/* Navigation */}
-        <div className="flex items-center justify-between border-t pt-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={goPrev}
-            disabled={isFirst}
-          >
-            ← Sebelumnya
-          </Button>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <CheckCircle2 className="h-4 w-4" />
-            <span>
-              {selectedModuleIdx >= 0 && selectedLessonIdx >= 0
-                ? `${allLessons.indexOf(selectedLesson!) + 1} / ${allLessons.length}`
-                : ''}
-            </span>
+        {/* Mark Complete + Navigation */}
+        <div className="space-y-3 border-t pt-4">
+          {/* Mark complete button */}
+          {selectedLesson && !isLessonCompleted && (
+            <Button
+              onClick={handleCompleteLesson}
+              disabled={isPending}
+              className="w-full bg-green-600 hover:bg-green-700"
+            >
+              {isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="mr-2 h-4 w-4" />
+              )}
+              Tandai Selesai
+            </Button>
+          )}
+
+          {/* Navigation */}
+          <div className="flex items-center justify-between">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={goPrev}
+              disabled={isFirst}
+            >
+              ← Sebelumnya
+            </Button>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <CheckCircle2 className="h-4 w-4" />
+              <span>
+                {selectedModuleIdx >= 0 && selectedLessonIdx >= 0
+                  ? `${allLessons.indexOf(selectedLesson!) + 1} / ${allLessons.length}`
+                  : ''}
+              </span>
+            </div>
+            <Button size="sm" onClick={goNext} disabled={isLast}>
+              Berikutnya →
+            </Button>
           </div>
-          <Button size="sm" onClick={goNext} disabled={isLast}>
-            Berikutnya →
-          </Button>
         </div>
       </div>
     </div>

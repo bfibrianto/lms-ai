@@ -1,10 +1,11 @@
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
+import { getCompletedLessonIds } from '@/lib/actions/enrollments'
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, HelpCircle, CheckCircle2, Timer } from 'lucide-react'
 import { CoursePlayer } from '@/components/portal/courses/course-player'
 
 const levelLabels: Record<string, string> = {
@@ -28,37 +29,58 @@ export default async function CoursePlayerPage({ params }: PageProps) {
 
   if (!enrollment) redirect('/portal/courses')
 
-  const course = await db.course.findUnique({
-    where: { id: courseId, status: 'PUBLISHED' },
-    select: {
-      id: true,
-      title: true,
-      description: true,
-      level: true,
-      creator: { select: { name: true } },
-      modules: {
-        orderBy: { order: 'asc' },
-        select: {
-          id: true,
-          title: true,
-          order: true,
-          lessons: {
-            orderBy: { order: 'asc' },
-            select: {
-              id: true,
-              title: true,
-              type: true,
-              content: true,
-              videoUrl: true,
-              fileUrl: true,
-              duration: true,
-              order: true,
+  const [course, completedLessonIds, quizzes] = await Promise.all([
+    db.course.findUnique({
+      where: { id: courseId, status: 'PUBLISHED' },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        level: true,
+        creator: { select: { name: true } },
+        modules: {
+          orderBy: { order: 'asc' },
+          select: {
+            id: true,
+            title: true,
+            order: true,
+            lessons: {
+              orderBy: { order: 'asc' },
+              select: {
+                id: true,
+                title: true,
+                type: true,
+                content: true,
+                videoUrl: true,
+                fileUrl: true,
+                duration: true,
+                order: true,
+              },
             },
           },
         },
       },
-    },
-  })
+    }),
+    getCompletedLessonIds(userId, courseId),
+    db.quiz.findMany({
+      where: { courseId },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        title: true,
+        passingScore: true,
+        duration: true,
+        maxAttempts: true,
+        _count: { select: { questions: true } },
+        attempts: {
+          where: { enrollmentId: enrollment.id },
+          orderBy: { startedAt: 'desc' },
+          take: 1,
+          select: { score: true, passed: true },
+        },
+      },
+    }),
+  ])
 
   if (!course) notFound()
 
@@ -108,8 +130,67 @@ export default async function CoursePlayerPage({ params }: PageProps) {
       <CoursePlayer
         modules={course.modules}
         courseTitle={course.title}
+        courseId={courseId}
         progress={enrollment.progress}
+        completedLessonIds={completedLessonIds}
+        lastLessonId={enrollment.lastLessonId}
       />
+
+      {/* Quiz section */}
+      {quizzes.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="flex items-center gap-2 text-base font-semibold">
+            <HelpCircle className="h-4 w-4" />
+            Quiz & Assessment
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {quizzes.map((quiz) => {
+              const lastAttempt = quiz.attempts[0]
+              return (
+                <Link
+                  key={quiz.id}
+                  href={`/portal/my-courses/${courseId}/quiz/${quiz.id}`}
+                  className="flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-accent"
+                >
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">{quiz.title}</p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>{quiz._count.questions} soal</span>
+                      <span>·</span>
+                      <span>Passing: {quiz.passingScore}%</span>
+                      {quiz.duration && (
+                        <>
+                          <span>·</span>
+                          <span className="flex items-center gap-0.5">
+                            <Timer className="h-3 w-3" />
+                            {quiz.duration}m
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  {lastAttempt ? (
+                    <Badge
+                      variant={lastAttempt.passed ? 'default' : 'destructive'}
+                      className="shrink-0"
+                    >
+                      {lastAttempt.passed ? (
+                        <><CheckCircle2 className="mr-1 h-3 w-3" />{lastAttempt.score}%</>
+                      ) : (
+                        `${lastAttempt.score ?? '?'}%`
+                      )}
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="shrink-0">
+                      Belum dicoba
+                    </Badge>
+                  )}
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

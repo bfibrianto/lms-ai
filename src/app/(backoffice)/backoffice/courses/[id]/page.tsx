@@ -5,7 +5,9 @@ import { auth } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { getCourseById } from '@/lib/actions/courses'
+import { getQuizzesByCourse, getQuizDetail } from '@/lib/actions/quizzes'
 import { CourseBuilder } from '@/components/backoffice/courses/course-builder'
+import { QuizBuilder } from '@/components/backoffice/quizzes/quiz-builder'
 import type { CourseStatus, CourseLevel } from '@/types/courses'
 
 interface PageProps {
@@ -34,8 +36,16 @@ export default async function CourseBuilderPage({ params }: PageProps) {
   const session = await auth()
   const { id } = await params
 
-  const course = await getCourseById(id)
+  const [course, quizList] = await Promise.all([
+    getCourseById(id),
+    getQuizzesByCourse(id),
+  ])
   if (!course) notFound()
+
+  // Fetch full detail for each quiz (with questions)
+  const quizzes = await Promise.all(
+    quizList.map((q) => getQuizDetail(q.id))
+  ).then((results) => results.filter(Boolean)) as NonNullable<Awaited<ReturnType<typeof getQuizDetail>>>[]
 
   const canEdit = ['SUPER_ADMIN', 'HR_ADMIN', 'MENTOR'].includes(session!.user.role)
 
@@ -82,6 +92,13 @@ export default async function CourseBuilderPage({ params }: PageProps) {
         <h2 className="mb-3 text-base font-semibold">Konten Kursus</h2>
         <CourseBuilder initialData={course} canEdit={canEdit} />
       </div>
+
+      {/* Quiz Builder */}
+      <div>
+        <h2 className="mb-3 text-base font-semibold">Quiz & Assessment</h2>
+        <QuizBuilder courseId={id} quizzes={quizzes} canEdit={canEdit} />
+      </div>
     </div>
   )
 }
+

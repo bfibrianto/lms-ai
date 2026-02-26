@@ -13,6 +13,7 @@ export interface MyCoursesItem {
   id: string
   status: string
   progress: number
+  lastLessonId: string | null
   enrolledAt: Date
   completedAt: Date | null
   course: {

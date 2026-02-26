@@ -33,6 +33,11 @@ enum LessonType {
   TEXT
 }
 
+enum QuestionType {
+  MULTIPLE_CHOICE
+  ESSAY
+}
+
 model User {
   id            String    @id @default(cuid())
   name          String
@@ -115,6 +120,7 @@ model Course {
   creator     User         @relation("CourseCreator", fields: [creatorId], references: [id])
   modules     Module[]
   enrollments Enrollment[]
+  quizzes     Quiz[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
@@ -122,16 +128,19 @@ model Course {
 }
 
 model Enrollment {
-  id          String           @id @default(cuid())
-  userId      String
-  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  courseId    String
-  course      Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  status      EnrollmentStatus @default(ENROLLED)
-  progress    Int              @default(0)
-  enrolledAt  DateTime         @default(now())
-  completedAt DateTime?
-  updatedAt   DateTime         @updatedAt
+  id           String           @id @default(cuid())
+  userId       String
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId     String
+  course       Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  status       EnrollmentStatus @default(ENROLLED)
+  progress     Int              @default(0)
+  lastLessonId String?
+  enrolledAt   DateTime         @default(now())
+  completedAt  DateTime?
+  updatedAt    DateTime         @updatedAt
+  completions  LessonCompletion[]
+  quizAttempts QuizAttempt[]
 
   @@unique([userId, courseId])
   @@map("enrollments")
@@ -207,18 +216,108 @@ model Module {
 }
 
 model Lesson {
-  id        String     @id @default(cuid())
-  moduleId  String
-  module    Module     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-  title     String
-  type      LessonType @default(TEXT)
-  content   String?    @db.Text
-  videoUrl  String?
-  fileUrl   String?
-  duration  Int?
-  order     Int        @default(0)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id          String             @id @default(cuid())
+  moduleId    String
+  module      Module             @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  title       String
+  type        LessonType         @default(TEXT)
+  content     String?            @db.Text
+  videoUrl    String?
+  fileUrl     String?
+  duration    Int?
+  order       Int                @default(0)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  completions LessonCompletion[]
 
   @@map("lessons")
+}
+
+model LessonCompletion {
+  id           String     @id @default(cuid())
+  enrollmentId String
+  enrollment   Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  lessonId     String
+  lesson       Lesson     @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  completedAt  DateTime   @default(now())
+
+  @@unique([enrollmentId, lessonId])
+  @@map("lesson_completions")
+}
+
+// ─── Quiz & Assessment ────────────────────────────────────────
+
+model Quiz {
+  id               String    @id @default(cuid())
+  courseId         String
+  course           Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title            String
+  description      String?   @db.Text
+  passingScore     Int       @default(70)
+  duration         Int?
+  maxAttempts      Int       @default(1)
+  shuffleQuestions Boolean   @default(false)
+  showResult       Boolean   @default(true)
+  questions        Question[]
+  attempts         QuizAttempt[]
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@map("quizzes")
+}
+
+model Question {
+  id       String           @id @default(cuid())
+  quizId   String
+  quiz     Quiz             @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  type     QuestionType
+  text     String           @db.Text
+  points   Int              @default(1)
+  order    Int              @default(0)
+  options  QuestionOption[]
+  answers  AttemptAnswer[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@map("questions")
+}
+
+model QuestionOption {
+  id         String   @id @default(cuid())
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  text       String
+  isCorrect  Boolean  @default(false)
+  order      Int      @default(0)
+
+  @@map("question_options")
+}
+
+model QuizAttempt {
+  id           String     @id @default(cuid())
+  quizId       String
+  quiz         Quiz       @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  enrollmentId String
+  enrollment   Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  score        Int?
+  passed       Boolean?
+  startedAt    DateTime   @default(now())
+  submittedAt  DateTime?
+  answers      AttemptAnswer[]
+
+  @@map("quiz_attempts")
+}
+
+model AttemptAnswer {
+  id         String      @id @default(cuid())
+  attemptId  String
+  attempt    QuizAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  questionId String
+  question   Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  optionId   String?
+  essayText  String?     @db.Text
+  score      Int?
+  feedback   String?     @db.Text
+
+  @@map("attempt_answers")
 }
