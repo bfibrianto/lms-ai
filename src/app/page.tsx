@@ -51,7 +51,7 @@ export default async function LandingPage() {
                       href="/auth/login"
                       className="hidden sm:flex text-sm font-medium text-slate-600 hover:text-primary dark:text-slate-300"
                     >
-                      Login Internal
+                      Login
                     </Link>
                     <Link
                       href="/auth/login"
