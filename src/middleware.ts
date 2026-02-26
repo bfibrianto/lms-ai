@@ -28,7 +28,9 @@ export async function middleware(request: NextRequest) {
     )
   }
 
-  if (!isAuthPage && !isLoggedIn) {
+  const isPublicPage = pathname === '/'
+
+  if (!isAuthPage && !isPublicPage && !isLoggedIn) {
     return NextResponse.redirect(new URL('/auth/login', request.url))
   }
 
@@ -36,8 +38,8 @@ export async function middleware(request: NextRequest) {
     const role = token.role as string
     const isBackoffice = BACKOFFICE_ROLES.includes(role)
 
-    // Root or old dashboard redirect
-    if (pathname === '/' || pathname === '/dashboard') {
+    // Old dashboard redirect
+    if (pathname === '/dashboard') {
       return NextResponse.redirect(
         new URL(getDashboardPath(role), request.url)
       )

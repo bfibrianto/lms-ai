@@ -1,3 +1,14 @@
+const fs = require('fs');
+let html = fs.readFileSync('../../references/landing-page.html', 'utf8');
+
+// Replace class -> className
+html = html.replace(/class="/g, 'className="');
+// Self close img and input - already self-closed mostly, wait, let's check
+html = html.replace(/<img([^>]+[^\/])>/g, '<img$1 />');
+html = html.replace(/<input([^>]+[^\/])>/g, '<input$1 />');
+html = html.replace(/<!--(.*?)-->/g, '{/*$1*/}');
+
+let tsxCode = `
 import { auth } from '@/lib/auth'
 import Link from 'next/link'
 import { getDashboardPath } from '@/lib/roles'
@@ -17,18 +28,18 @@ import {
 
 export default async function LandingPage() {
   const session = await auth()
-
+  
   const dashboardHref = session?.user ? getDashboardPath(session.user.role) : '/auth/login'
 
   return (
     <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden bg-background font-sans text-slate-900 dark:text-slate-100">
       <header className="sticky top-0 z-50 w-full border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
             <div className="flex items-center gap-8">
               <Link href="/" className="flex items-center gap-2">
                 <GraduationCap className="h-8 w-8 text-primary" />
-                <span className="text-xl font-bold tracking-tight">Sitamoto Academy</span>
+                <span className="text-xl font-bold tracking-tight">LMS AI</span>
               </Link>
               <nav className="hidden md:flex items-center gap-6">
                 <a className="text-sm font-medium text-slate-600 transition-colors hover:text-primary dark:text-slate-300" href="#">Courses</a>
@@ -73,7 +84,7 @@ export default async function LandingPage() {
           </div>
         </div>
       </header>
-
+      
       <main className="flex-1">
         {/* Hero Section */}
         <section className="relative overflow-hidden py-16 lg:py-24">
@@ -254,7 +265,7 @@ export default async function LandingPage() {
               <h2 className="mb-4 text-3xl font-bold text-slate-900 dark:text-white">Success Stories</h2>
               <p className="text-slate-600 dark:text-slate-400">Join thousands of students who have transformed their careers with us.</p>
             </div>
-
+            
             <div className="grid gap-8 md:grid-cols-3">
               {/* Story 1 */}
               <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900/50">
@@ -403,3 +414,6 @@ export default async function LandingPage() {
     </div>
   )
 }
+`
+
+fs.writeFileSync('src/app/page.tsx', tsxCode);
