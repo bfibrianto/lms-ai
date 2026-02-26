@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { portalNav } from '@/config/navigation'
 import { ThemeToggle } from '@/components/layout/theme-toggle'
 import { UserMenu } from '@/components/layout/user-menu'
+import { NotificationBell } from '@/components/layout/notification-bell'
 import { Button } from '@/components/ui/button'
 import {
   Sheet,
@@ -56,6 +57,7 @@ export function TopNav({ user }: TopNavProps) {
 
         {/* Right side */}
         <div className="ml-auto flex items-center gap-1">
+          <NotificationBell />
           <ThemeToggle />
           <UserMenu user={user} />
           <Button
