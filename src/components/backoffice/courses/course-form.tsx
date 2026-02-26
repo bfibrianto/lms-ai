@@ -33,6 +33,7 @@ import {
 } from '@/lib/validations/courses'
 import { createCourse, updateCourse } from '@/lib/actions/courses'
 import { FileUploader } from '@/components/shared/upload-button'
+import { GenerateContentButton } from '@/components/shared/generate-content-button'
 import type { CourseDetail } from '@/types/courses'
 
 type CreateValues = z.infer<typeof CreateCourseSchema>
@@ -147,7 +148,14 @@ export function CourseForm(props: Props) {
           name="description"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Deskripsi</FormLabel>
+              <div className="flex items-center justify-between">
+                <FormLabel>Deskripsi</FormLabel>
+                <GenerateContentButton
+                  title="Generate Deskripsi"
+                  context={`Tolong buatkan deskripsi kursus untuk: ${form.getValues('title')}.`}
+                  onSuccess={(text) => field.onChange(text)}
+                />
+              </div>
               <FormControl>
                 <Textarea
                   placeholder="Deskripsi singkat tentang kursus ini..."

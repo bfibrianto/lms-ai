@@ -13,6 +13,7 @@ import {
     FileText,
     Timer,
     Settings,
+    Sparkles,
 } from 'lucide-react'
 import {
     Dialog,
@@ -35,6 +36,7 @@ import {
 import { QuizSettingsForm } from './quiz-settings-form'
 import { QuestionEditor } from './question-editor'
 import { deleteQuiz, deleteQuestion } from '@/lib/actions/quizzes'
+import { GenerateQuizModal } from './generate-quiz-modal'
 import type { QuizDetail } from '@/types/quizzes'
 
 interface QuizBuilderProps {
@@ -47,6 +49,7 @@ export function QuizBuilder({ courseId, quizzes, canEdit }: QuizBuilderProps) {
     const [showCreateDialog, setShowCreateDialog] = useState(false)
     const [editingQuiz, setEditingQuiz] = useState<QuizDetail | null>(null)
     const [addingQuestionQuizId, setAddingQuestionQuizId] = useState<string | null>(null)
+    const [generatingQuizId, setGeneratingQuizId] = useState<string | null>(null)
     const [editingQuestion, setEditingQuestion] = useState<{
         quizId: string
         question: QuizDetail['questions'][0]
@@ -253,48 +256,68 @@ export function QuizBuilder({ courseId, quizzes, canEdit }: QuizBuilderProps) {
                     {/* Add question */}
                     {canEdit && (
                         <div className="border-t p-3">
-                            <Dialog open={addingQuestionQuizId === quiz.id} onOpenChange={(open) => setAddingQuestionQuizId(open ? quiz.id : null)}>
-                                <DialogTrigger asChild>
-                                    <Button variant="outline" size="sm" className="w-full border-dashed">
-                                        <Plus className="mr-1 h-3 w-3" /> Tambah Soal
-                                    </Button>
-                                </DialogTrigger>
-                                <DialogContent className="max-w-lg">
-                                    <DialogHeader>
-                                        <DialogTitle>Tambah Soal</DialogTitle>
-                                    </DialogHeader>
-                                    <QuestionEditor
-                                        quizId={quiz.id}
-                                        onSuccess={() => setAddingQuestionQuizId(null)}
-                                        onCancel={() => setAddingQuestionQuizId(null)}
-                                    />
-                                </DialogContent>
-                            </Dialog>
+                            <div className="flex flex-col sm:flex-row gap-2">
+                                <Dialog open={addingQuestionQuizId === quiz.id} onOpenChange={(open) => setAddingQuestionQuizId(open ? quiz.id : null)}>
+                                    <DialogTrigger asChild>
+                                        <Button variant="outline" size="sm" className="w-full border-dashed flex-1">
+                                            <Plus className="mr-1 h-3 w-3" /> Tambah Soal
+                                        </Button>
+                                    </DialogTrigger>
+                                    <DialogContent className="max-w-lg">
+                                        <DialogHeader>
+                                            <DialogTitle>Tambah Soal</DialogTitle>
+                                        </DialogHeader>
+                                        <QuestionEditor
+                                            quizId={quiz.id}
+                                            onSuccess={() => setAddingQuestionQuizId(null)}
+                                            onCancel={() => setAddingQuestionQuizId(null)}
+                                        />
+                                    </DialogContent>
+                                </Dialog>
+
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    className="w-full flex-1"
+                                    onClick={() => setGeneratingQuizId(quiz.id)}
+                                >
+                                    <Sparkles className="mr-1 h-3 w-3 text-primary" /> Generate Soal AI
+                                </Button>
+                            </div>
+
+                            <GenerateQuizModal
+                                quizId={quiz.id}
+                                isOpen={generatingQuizId === quiz.id}
+                                onOpenChange={(open) => setGeneratingQuizId(open ? quiz.id : null)}
+                                onSuccess={() => setGeneratingQuizId(null)}
+                            />
                         </div>
                     )}
                 </div>
             ))}
 
             {/* Create quiz */}
-            {canEdit && (
-                <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-                    <DialogTrigger asChild>
-                        <Button variant="outline" className="w-full border-dashed">
-                            <Plus className="mr-2 h-4 w-4" /> Tambah Quiz
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>Buat Quiz Baru</DialogTitle>
-                        </DialogHeader>
-                        <QuizSettingsForm
-                            courseId={courseId}
-                            onSuccess={() => setShowCreateDialog(false)}
-                            onCancel={() => setShowCreateDialog(false)}
-                        />
-                    </DialogContent>
-                </Dialog>
-            )}
-        </div>
+            {
+                canEdit && (
+                    <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+                        <DialogTrigger asChild>
+                            <Button variant="outline" className="w-full border-dashed">
+                                <Plus className="mr-2 h-4 w-4" /> Tambah Quiz
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>Buat Quiz Baru</DialogTitle>
+                            </DialogHeader>
+                            <QuizSettingsForm
+                                courseId={courseId}
+                                onSuccess={() => setShowCreateDialog(false)}
+                                onCancel={() => setShowCreateDialog(false)}
+                            />
+                        </DialogContent>
+                    </Dialog>
+                )
+            }
+        </div >
     )
 }

@@ -93,7 +93,7 @@ describe('Certificate Actions', () => {
 
     describe('getMyCertificates', () => {
         it('should throw an error if user is unauthenticated', async () => {
-            vi.mocked(auth).mockResolvedValueOnce(null)
+            vi.mocked(auth).mockResolvedValueOnce(null as any)
             await expect(getMyCertificates()).rejects.toThrow('Unauthorized')
         })
 

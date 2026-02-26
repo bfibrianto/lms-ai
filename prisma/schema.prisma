@@ -422,3 +422,15 @@ model Notification {
 
   @@map("notifications")
 }
+
+// ─── Settings ────────────────────────────────────────
+
+model Setting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String   @db.Text
+  description String?
+  updatedAt   DateTime @updatedAt
+
+  @@map("settings")
+}
