@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { CheckCircle2, Loader2, User, FileText } from 'lucide-react'
 import { gradeEssay } from '@/lib/actions/quiz-attempts'
+import { SuggestScoreButton } from './suggest-score-button'
 import type { EssayToGrade } from '@/types/quizzes'
 
 interface GradingDashboardProps {
@@ -91,49 +92,63 @@ export function GradingDashboard({ essays, quizTitle }: GradingDashboardProps) {
 
                     {/* Grading form */}
                     <div className="border-t bg-accent/30 px-4 py-3">
-                        <div className="flex items-end gap-3">
-                            <div className="w-24 space-y-1">
-                                <Label className="text-xs">Skor</Label>
-                                <Input
-                                    type="number"
-                                    min={0}
-                                    max={essay.question.points}
-                                    value={scores[essay.id] ?? ''}
-                                    onChange={(e) =>
-                                        setScores((prev) => ({
-                                            ...prev,
-                                            [essay.id]: Number(e.target.value),
-                                        }))
-                                    }
-                                    placeholder={`0-${essay.question.points}`}
+                        <div className="flex flex-col gap-3">
+                            <div className="flex items-center justify-between">
+                                <h4 className="text-sm font-semibold">Penilaian</h4>
+                                <SuggestScoreButton
+                                    questionText={essay.question.text}
+                                    studentAnswer={essay.essayText || ''}
+                                    maxScore={essay.question.points}
+                                    onSuccess={(score, feedback) => {
+                                        setScores(prev => ({ ...prev, [essay.id]: score }))
+                                        setFeedbacks(prev => ({ ...prev, [essay.id]: "(AI) " + feedback }))
+                                    }}
                                 />
                             </div>
-                            <div className="min-w-0 flex-1 space-y-1">
-                                <Label className="text-xs">Feedback (opsional)</Label>
-                                <Textarea
-                                    value={feedbacks[essay.id] ?? ''}
-                                    onChange={(e) =>
-                                        setFeedbacks((prev) => ({
-                                            ...prev,
-                                            [essay.id]: e.target.value,
-                                        }))
-                                    }
-                                    placeholder="Komentar untuk peserta..."
-                                    rows={1}
-                                />
+                            <div className="flex items-end gap-3 flex-wrap sm:flex-nowrap">
+                                <div className="w-24 space-y-1">
+                                    <Label className="text-xs">Skor</Label>
+                                    <Input
+                                        type="number"
+                                        min={0}
+                                        max={essay.question.points}
+                                        value={scores[essay.id] ?? ''}
+                                        onChange={(e) =>
+                                            setScores((prev) => ({
+                                                ...prev,
+                                                [essay.id]: Number(e.target.value),
+                                            }))
+                                        }
+                                        placeholder={`0-${essay.question.points}`}
+                                    />
+                                </div>
+                                <div className="min-w-0 flex-1 space-y-1">
+                                    <Label className="text-xs">Feedback (opsional)</Label>
+                                    <Textarea
+                                        value={feedbacks[essay.id] ?? ''}
+                                        onChange={(e) =>
+                                            setFeedbacks((prev) => ({
+                                                ...prev,
+                                                [essay.id]: e.target.value,
+                                            }))
+                                        }
+                                        placeholder="Komentar untuk peserta..."
+                                        rows={1}
+                                    />
+                                </div>
+                                <Button
+                                    size="sm"
+                                    onClick={() => handleGrade(essay.id, essay.question.points)}
+                                    disabled={isPending}
+                                >
+                                    {isPending ? (
+                                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                    ) : (
+                                        <CheckCircle2 className="mr-1 h-3 w-3" />
+                                    )}
+                                    Simpan
+                                </Button>
                             </div>
-                            <Button
-                                size="sm"
-                                onClick={() => handleGrade(essay.id, essay.question.points)}
-                                disabled={isPending}
-                            >
-                                {isPending ? (
-                                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                ) : (
-                                    <CheckCircle2 className="mr-1 h-3 w-3" />
-                                )}
-                                Simpan
-                            </Button>
                         </div>
                     </div>
                 </div>

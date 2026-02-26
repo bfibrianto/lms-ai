@@ -4,6 +4,9 @@ import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { revalidatePath } from 'next/cache'
 import { checkAndUnlockNextCourse } from '@/lib/actions/path-enrollments'
+import { generateCertificate } from '@/lib/actions/certificates'
+import { createNotification } from '@/lib/actions/notifications'
+import { sendEmail } from '@/lib/email'
 
 async function requireAuth() {
   const session = await auth()
@@ -19,7 +22,7 @@ export async function enrollCourse(
 
     const course = await db.course.findUnique({
       where: { id: courseId, status: 'PUBLISHED' },
-      select: { id: true },
+      select: { id: true, title: true },
     })
     if (!course) return { success: false, error: 'Kursus tidak ditemukan' }
 
@@ -31,6 +34,23 @@ export async function enrollCourse(
     await db.enrollment.create({
       data: { userId: user.id!, courseId },
     })
+
+    // Trigger Notification
+    await createNotification({
+      userId: user.id!,
+      type: 'INFO',
+      title: 'Pendaftaran Berhasil',
+      message: `Anda telah berhasil terdaftar di kursus "${course.title}". Selamat belajar!`,
+      actionUrl: `/portal/my-courses/${courseId}`
+    })
+
+    if (user.email) {
+      await sendEmail({
+        to: user.email,
+        subject: `Pendaftaran Kursus: ${course.title}`,
+        body: `Halo ${user.name},\n\nAnda telah terdaftar di kursus "${course.title}". Selamat belajar!\n\nSalam,\nTim LMS AI`
+      })
+    }
 
     revalidatePath('/portal/dashboard')
     revalidatePath('/portal/my-courses')
@@ -195,6 +215,12 @@ export async function completeLesson(
 
     if (isCompleted) {
       await checkAndUnlockNextCourse(user.id!, courseId)
+      // Generate certificate for completing the COURSE
+      await generateCertificate({
+        userId: user.id!,
+        type: 'COURSE',
+        referenceId: courseId,
+      })
     }
 
     revalidatePath(`/portal/my-courses/${courseId}`)

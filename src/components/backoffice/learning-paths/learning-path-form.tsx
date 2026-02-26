@@ -6,7 +6,7 @@ import Image from 'next/image'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
-import { Image as ImageIcon, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -24,6 +24,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { CreateLearningPathSchema, type CreateLearningPathInput } from '@/lib/validations/learning-paths'
 import { createLearningPath, updateLearningPath } from '@/lib/actions/learning-paths'
 import type { LearningPathDetail } from '@/types/learning-paths'
+import { FileUploader } from '@/components/shared/upload-button'
 
 interface LearningPathFormProps {
     initialData?: LearningPathDetail
@@ -56,13 +57,13 @@ export function LearningPathForm({ initialData, isEdit }: LearningPathFormProps)
             formData.append('status', data.status)
             if (data.thumbnail instanceof File) {
                 formData.append('thumbnail', data.thumbnail)
-            } else if (typeof data.thumbnail === 'string') {
+            } else if (typeof data.thumbnail === 'string' && data.thumbnail) {
                 formData.append('thumbnail', data.thumbnail) // send existing URL if changed via URL input instead of file
             }
 
             if (isEdit && initialData) {
                 // If user changed thumbnail completely, or cleared it
-                if (data.thumbnail === null && !thumbnailPreview) {
+                if (data.thumbnail === null) {
                     formData.append('removeThumbnail', 'true')
                 }
                 const res = await updateLearningPath(initialData.id, formData)
@@ -149,52 +150,34 @@ export function LearningPathForm({ initialData, isEdit }: LearningPathFormProps)
                     name="thumbnail"
                     render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Thumbnail Path (URL Gambar)</FormLabel>
+                            <FormLabel>Thumbnail Path (Gambar)</FormLabel>
                             <FormControl>
-                                {/* For simplicity we use a string URL input right now */}
-                                <div className="flex gap-4 items-start">
-                                    {thumbnailPreview ? (
-                                        <div className="relative aspect-video w-40 overflow-hidden rounded-md border">
-                                            <Image
-                                                src={thumbnailPreview}
-                                                alt="Thumbnail preview"
-                                                fill
-                                                className="object-cover"
-                                                unoptimized
-                                            />
-                                        </div>
-                                    ) : (
-                                        <div className="flex aspect-video w-40 items-center justify-center rounded-md border border-dashed bg-muted">
-                                            <ImageIcon className="h-8 w-8 text-muted-foreground" />
-                                        </div>
-                                    )}
-                                    <div className="flex-1 space-y-2">
-                                        <Input
-                                            placeholder="https://example.com/image.jpg"
-                                            value={typeof field.value === 'string' ? field.value : ''}
-                                            onChange={(e) => {
-                                                field.onChange(e.target.value)
-                                                setThumbnailPreview(e.target.value)
+                                <div className="space-y-4">
+                                    <FileUploader
+                                        currentImageUrl={typeof field.value === 'string' ? field.value : undefined}
+                                        onUploadSuccess={(url) => {
+                                            field.onChange(url)
+                                            setThumbnailPreview(url)
+                                        }}
+                                        folder="learning-paths"
+                                    />
+                                    {(thumbnailPreview || field.value) && (
+                                        <Button
+                                            type="button"
+                                            variant="destructive"
+                                            size="sm"
+                                            onClick={() => {
+                                                field.onChange(null)
+                                                setThumbnailPreview(null)
                                             }}
-                                        />
-                                        {thumbnailPreview && (
-                                            <Button
-                                                type="button"
-                                                variant="destructive"
-                                                size="sm"
-                                                onClick={() => {
-                                                    field.onChange(null)
-                                                    setThumbnailPreview(null)
-                                                }}
-                                            >
-                                                Hapus Gambar
-                                            </Button>
-                                        )}
-                                    </div>
+                                        >
+                                            Hapus Gambar
+                                        </Button>
+                                    )}
                                 </div>
                             </FormControl>
                             <FormDescription>
-                                Masukkan URL gambar (landscape direkomendasikan).
+                                Unggah gambar thumbnail (landscape direkomendasikan). Format didukung: JPG, PNG, WEBP. Maks 5MB.
                             </FormDescription>
                             <FormMessage />
                         </FormItem>

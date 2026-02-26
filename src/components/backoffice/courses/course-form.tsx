@@ -32,6 +32,8 @@ import {
   COURSE_STATUSES,
 } from '@/lib/validations/courses'
 import { createCourse, updateCourse } from '@/lib/actions/courses'
+import { FileUploader } from '@/components/shared/upload-button'
+import { GenerateContentButton } from '@/components/shared/generate-content-button'
 import type { CourseDetail } from '@/types/courses'
 
 type CreateValues = z.infer<typeof CreateCourseSchema>
@@ -72,18 +74,18 @@ export function CourseForm(props: Props) {
     resolver: zodResolver(schema),
     defaultValues: isEdit
       ? {
-          title: course!.title,
-          description: course!.description ?? '',
-          thumbnail: course!.thumbnail ?? '',
-          level: course!.level,
-          status: course!.status,
-        }
+        title: course!.title,
+        description: course!.description ?? '',
+        thumbnail: course!.thumbnail ?? '',
+        level: course!.level,
+        status: course!.status,
+      }
       : {
-          title: '',
-          description: '',
-          thumbnail: '',
-          level: 'BEGINNER' as const,
-        },
+        title: '',
+        description: '',
+        thumbnail: '',
+        level: 'BEGINNER' as const,
+      },
   })
 
   function onSubmit(values: CreateValues | EditValues) {
@@ -146,7 +148,14 @@ export function CourseForm(props: Props) {
           name="description"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Deskripsi</FormLabel>
+              <div className="flex items-center justify-between">
+                <FormLabel>Deskripsi</FormLabel>
+                <GenerateContentButton
+                  title="Generate Deskripsi"
+                  context={`Tolong buatkan deskripsi kursus untuk: ${form.getValues('title')}.`}
+                  onSuccess={(text) => field.onChange(text)}
+                />
+              </div>
               <FormControl>
                 <Textarea
                   placeholder="Deskripsi singkat tentang kursus ini..."
@@ -166,16 +175,18 @@ export function CourseForm(props: Props) {
             control={form.control}
             name="thumbnail"
             render={({ field }) => (
-              <FormItem>
-                <FormLabel>URL Thumbnail</FormLabel>
+              <FormItem className="col-span-full sm:col-span-2">
+                <FormLabel>Gambar Thumbnail Kursus</FormLabel>
                 <FormControl>
-                  <Input
-                    placeholder="https://example.com/thumbnail.jpg"
-                    {...field}
-                    value={field.value ?? ''}
+                  <FileUploader
+                    currentImageUrl={field.value}
+                    onUploadSuccess={(url) => {
+                      field.onChange(url)
+                    }}
+                    folder="courses"
                   />
                 </FormControl>
-                <FormDescription>URL gambar thumbnail kursus (opsional)</FormDescription>
+                <FormDescription>Format didukung: JPG, PNG, WEBP. Maks 5MB.</FormDescription>
                 <FormMessage />
               </FormItem>
             )}

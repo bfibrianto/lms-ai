@@ -3,6 +3,9 @@
 import { db } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
+import { generateCertificate } from '@/lib/actions/certificates'
+import { createNotification } from '@/lib/actions/notifications'
+import { sendEmail } from '@/lib/email'
 
 // ─── PORTAL ACTIONS ──────────────────────────────
 
@@ -152,6 +155,23 @@ export async function enrollInPath(pathId: string) {
         }
     })
 
+    // Trigger Notification
+    await createNotification({
+        userId: userId,
+        type: 'INFO',
+        title: 'Pendaftaran Learning Path Berhasil',
+        message: `Anda telah terdaftar di learning path "${path.title}".`,
+        actionUrl: `/portal/learning-paths/${pathId}`
+    })
+
+    if (session.user.email) {
+        await sendEmail({
+            to: session.user.email,
+            subject: `Pendaftaran Learning Path: ${path.title}`,
+            body: `Halo ${session.user.name},\n\nAnda telah terdaftar di learning path "${path.title}".\n\nSalam,\nTim LMS AI`
+        })
+    }
+
     revalidatePath(`/portal/learning-paths/${pathId}`)
     revalidatePath('/portal/my-courses')
     revalidatePath('/portal/learning-paths')
@@ -199,6 +219,13 @@ export async function checkAndUnlockNextCourse(userId: string, completedCourseId
                 await db.pathEnrollment.update({
                     where: { userId_pathId: { userId, pathId: pc.pathId } },
                     data: { completedAt: new Date() }
+                })
+
+                // Generate logic for PATH certificate
+                await generateCertificate({
+                    userId,
+                    type: 'PATH',
+                    referenceId: pc.pathId
                 })
             }
         } else if (currentIndex < allCoursesInPath.length - 1) {
