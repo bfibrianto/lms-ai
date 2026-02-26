@@ -3,6 +3,7 @@
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { revalidatePath } from 'next/cache'
+import { checkAndUnlockNextCourse } from '@/lib/actions/path-enrollments'
 
 async function requireAuth() {
   const session = await auth()
@@ -191,6 +192,10 @@ export async function completeLesson(
         completedAt: isCompleted ? new Date() : null,
       },
     })
+
+    if (isCompleted) {
+      await checkAndUnlockNextCourse(user.id!, courseId)
+    }
 
     revalidatePath(`/portal/my-courses/${courseId}`)
     revalidatePath('/portal/my-courses')

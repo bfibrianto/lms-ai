@@ -58,6 +58,8 @@ model User {
   enrollments           Enrollment[]
   trainings             Training[]             @relation("TrainingCreator")
   trainingRegistrations TrainingRegistration[]
+  createdPaths          LearningPath[]         @relation("PathCreator")
+  pathEnrollments       PathEnrollment[]
 
   @@map("users")
 }
@@ -110,35 +112,36 @@ enum EnrollmentStatus {
 }
 
 model Course {
-  id          String       @id @default(cuid())
-  title       String
-  description String?      @db.Text
-  thumbnail   String?
-  level       CourseLevel  @default(BEGINNER)
-  status      CourseStatus @default(DRAFT)
-  creatorId   String
-  creator     User         @relation("CourseCreator", fields: [creatorId], references: [id])
-  modules     Module[]
-  enrollments Enrollment[]
-  quizzes     Quiz[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id            String       @id @default(cuid())
+  title         String
+  description   String?      @db.Text
+  thumbnail     String?
+  level         CourseLevel  @default(BEGINNER)
+  status        CourseStatus @default(DRAFT)
+  creatorId     String
+  creator       User         @relation("CourseCreator", fields: [creatorId], references: [id])
+  modules       Module[]
+  enrollments   Enrollment[]
+  quizzes       Quiz[]
+  learningPaths PathCourse[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
   @@map("courses")
 }
 
 model Enrollment {
-  id           String           @id @default(cuid())
+  id           String             @id @default(cuid())
   userId       String
-  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   courseId     String
-  course       Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  status       EnrollmentStatus @default(ENROLLED)
-  progress     Int              @default(0)
+  course       Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  status       EnrollmentStatus   @default(ENROLLED)
+  progress     Int                @default(0)
   lastLessonId String?
-  enrolledAt   DateTime         @default(now())
+  enrolledAt   DateTime           @default(now())
   completedAt  DateTime?
-  updatedAt    DateTime         @updatedAt
+  updatedAt    DateTime           @updatedAt
   completions  LessonCompletion[]
   quizAttempts QuizAttempt[]
 
@@ -168,11 +171,11 @@ enum RegistrationStatus {
 }
 
 model Training {
-  id            String         @id @default(cuid())
+  id            String                 @id @default(cuid())
   title         String
-  description   String?        @db.Text
+  description   String?                @db.Text
   type          TrainingType
-  status        TrainingStatus @default(DRAFT)
+  status        TrainingStatus         @default(DRAFT)
   startDate     DateTime
   endDate       DateTime
   location      String?
@@ -180,10 +183,10 @@ model Training {
   capacity      Int?
   cover         String?
   creatorId     String
-  creator       User           @relation("TrainingCreator", fields: [creatorId], references: [id])
+  creator       User                   @relation("TrainingCreator", fields: [creatorId], references: [id])
   registrations TrainingRegistration[]
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
 
   @@map("trainings")
 }
@@ -248,36 +251,36 @@ model LessonCompletion {
 // ─── Quiz & Assessment ────────────────────────────────────────
 
 model Quiz {
-  id               String    @id @default(cuid())
+  id               String        @id @default(cuid())
   courseId         String
-  course           Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  course           Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
   title            String
-  description      String?   @db.Text
-  passingScore     Int       @default(70)
+  description      String?       @db.Text
+  passingScore     Int           @default(70)
   duration         Int?
-  maxAttempts      Int       @default(1)
-  shuffleQuestions Boolean   @default(false)
-  showResult       Boolean   @default(true)
+  maxAttempts      Int           @default(1)
+  shuffleQuestions Boolean       @default(false)
+  showResult       Boolean       @default(true)
   questions        Question[]
   attempts         QuizAttempt[]
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
   @@map("quizzes")
 }
 
 model Question {
-  id       String           @id @default(cuid())
-  quizId   String
-  quiz     Quiz             @relation(fields: [quizId], references: [id], onDelete: Cascade)
-  type     QuestionType
-  text     String           @db.Text
-  points   Int              @default(1)
-  order    Int              @default(0)
-  options  QuestionOption[]
-  answers  AttemptAnswer[]
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
+  id        String           @id @default(cuid())
+  quizId    String
+  quiz      Quiz             @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  type      QuestionType
+  text      String           @db.Text
+  points    Int              @default(1)
+  order     Int              @default(0)
+  options   QuestionOption[]
+  answers   AttemptAnswer[]
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
 
   @@map("questions")
 }
@@ -294,14 +297,14 @@ model QuestionOption {
 }
 
 model QuizAttempt {
-  id           String     @id @default(cuid())
+  id           String          @id @default(cuid())
   quizId       String
-  quiz         Quiz       @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  quiz         Quiz            @relation(fields: [quizId], references: [id], onDelete: Cascade)
   enrollmentId String
-  enrollment   Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  enrollment   Enrollment      @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
   score        Int?
   passed       Boolean?
-  startedAt    DateTime   @default(now())
+  startedAt    DateTime        @default(now())
   submittedAt  DateTime?
   answers      AttemptAnswer[]
 
@@ -320,4 +323,56 @@ model AttemptAnswer {
   feedback   String?     @db.Text
 
   @@map("attempt_answers")
+}
+
+// ─── Learning Path ────────────────────────────────────────
+
+enum LearningPathStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model LearningPath {
+  id          String             @id @default(cuid())
+  title       String
+  description String?            @db.Text
+  thumbnail   String?
+  status      LearningPathStatus @default(DRAFT)
+  creatorId   String
+  creator     User               @relation("PathCreator", fields: [creatorId], references: [id])
+  courses     PathCourse[]
+  enrollments PathEnrollment[]
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@map("learning_paths")
+}
+
+model PathCourse {
+  id        String       @id @default(cuid())
+  pathId    String
+  path      LearningPath @relation(fields: [pathId], references: [id], onDelete: Cascade)
+  courseId  String
+  course    Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  order     Int          @default(0)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@unique([pathId, courseId])
+  @@map("path_courses")
+}
+
+model PathEnrollment {
+  id          String       @id @default(cuid())
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pathId      String
+  path        LearningPath @relation(fields: [pathId], references: [id], onDelete: Cascade)
+  enrolledAt  DateTime     @default(now())
+  completedAt DateTime?
+  updatedAt   DateTime     @updatedAt
+
+  @@unique([userId, pathId])
+  @@map("path_enrollments")
 }
