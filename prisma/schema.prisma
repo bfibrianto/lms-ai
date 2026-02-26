@@ -61,6 +61,7 @@ model User {
   createdPaths          LearningPath[]         @relation("PathCreator")
   pathEnrollments       PathEnrollment[]
   certificates          Certificate[]
+  notifications         Notification[]
 
   @@map("users")
 }
@@ -397,4 +398,27 @@ model Certificate {
   isValid Boolean @default(true)
 
   @@map("certificates")
+}
+
+// ─── Notification ────────────────────────────────────────
+
+enum NotificationType {
+  INFO
+  ACHIEVEMENT
+  REMINDER
+  SYSTEM
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType @default(INFO)
+  title     String
+  message   String           @db.Text
+  isRead    Boolean          @default(false)
+  actionUrl String?
+  createdAt DateTime         @default(now())
+
+  @@map("notifications")
 }

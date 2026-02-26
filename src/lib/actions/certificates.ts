@@ -3,6 +3,8 @@
 import { db } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
+import { createNotification } from '@/lib/actions/notifications'
+import { sendEmail } from '@/lib/email'
 
 /**
  * Helper internal function to generate a certificate when a condition is met
@@ -29,8 +31,32 @@ export async function generateCertificate(params: {
             userId: params.userId,
             courseId: params.type === 'COURSE' ? params.referenceId : null,
             pathId: params.type === 'PATH' ? params.referenceId : null,
+        },
+        include: {
+            user: { select: { name: true, email: true } },
+            course: { select: { title: true } },
+            path: { select: { title: true } }
         }
     })
+
+    const itemName = cert.course?.title || cert.path?.title || 'Program'
+
+    // Trigger Notification
+    await createNotification({
+        userId: params.userId,
+        type: 'ACHIEVEMENT',
+        title: 'Sertifikat Baru!',
+        message: `Selamat! Anda telah mendapatkan sertifikat kelulusan untuk "${itemName}".`,
+        actionUrl: '/portal/certificates'
+    })
+
+    if (cert.user.email) {
+        await sendEmail({
+            to: cert.user.email,
+            subject: `Sertifikat Kelulusan: ${itemName}`,
+            body: `Halo ${cert.user.name},\n\nSelamat! Anda telah mendapatkan sertifikat kelulusan untuk "${itemName}". Anda dapat mengunduhnya di portal LMS.\n\nSalam,\nTim LMS AI`
+        })
+    }
 
     return cert
 }

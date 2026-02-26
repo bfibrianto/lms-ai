@@ -24,7 +24,7 @@ export function Header({ user }: HeaderProps) {
 
       {/* Right side actions */}
       <div className="ml-auto flex items-center gap-1">
-        <NotificationBell count={0} />
+        <NotificationBell />
         <ThemeToggle />
         <UserMenu user={user} />
       </div>
