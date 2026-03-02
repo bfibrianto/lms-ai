@@ -7,6 +7,7 @@ import {
   ClipboardList,
   Route,
   GraduationCap,
+  Trophy,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -43,5 +44,6 @@ export const portalNav: NavItem[] = [
   { title: 'Kursus Saya', href: '/portal/my-courses', icon: BookOpen },
   { title: 'Pelatihan', href: '/portal/trainings', icon: ClipboardList },
   { title: 'Learning Path', href: '/portal/learning-paths', icon: Route },
+  { title: 'Leaderboard', href: '/portal/leaderboard', icon: Trophy },
   { title: 'Sertifikat', href: '/portal/certificates', icon: Award },
 ]

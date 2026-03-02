@@ -3,6 +3,7 @@
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { revalidatePath } from 'next/cache'
+import { awardPoints } from '@/lib/actions/gamification'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -97,6 +98,7 @@ export async function submitAttempt(
         const quiz = await db.quiz.findUnique({
             where: { id: attempt.quizId },
             select: {
+                title: true,
                 passingScore: true,
                 showResult: true,
                 questions: {
@@ -177,6 +179,12 @@ export async function submitAttempt(
                 passed,
             },
         })
+
+        // Award points if passed
+        if (passed && finalScore !== null && finalScore > 0) {
+            const pointsToAward = Math.round(finalScore / 2) // Max 50 points
+            await awardPoints(user.id!, pointsToAward, `Lulus kuis: ${quiz.title} dengan nilai ${finalScore}`)
+        }
 
         revalidatePath(`/portal/my-courses/${attempt.enrollment.courseId}`)
 
@@ -351,6 +359,18 @@ export async function gradeEssay(
                     passed: attempt ? finalScore >= attempt.quiz.passingScore : false,
                 },
             })
+
+            // Award points if essay grading results in passed
+            if (attempt && finalScore >= attempt.quiz.passingScore && finalScore > 0) {
+                const pointsToAward = Math.round(finalScore / 2)
+                const attemptFull = await db.quizAttempt.findUnique({
+                    where: { id: answer.attemptId },
+                    select: { quiz: { select: { title: true } }, enrollment: { select: { userId: true } } }
+                })
+                if (attemptFull) {
+                    await awardPoints(attemptFull.enrollment.userId, pointsToAward, `Lulus kuis (Essay Graded): ${attemptFull.quiz.title} dengan nilai ${finalScore}`)
+                }
+            }
 
             if (attempt) {
                 revalidatePath(`/portal/my-courses/${attempt.quiz.courseId}`)

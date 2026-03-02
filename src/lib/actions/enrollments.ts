@@ -5,6 +5,7 @@ import { db } from '@/lib/db'
 import { revalidatePath } from 'next/cache'
 import { checkAndUnlockNextCourse } from '@/lib/actions/path-enrollments'
 import { generateCertificate } from '@/lib/actions/certificates'
+import { awardPoints } from '@/lib/actions/gamification'
 import { createNotification } from '@/lib/actions/notifications'
 import { sendEmail } from '@/lib/email'
 
@@ -167,6 +168,7 @@ export async function completeLesson(
 
     const enrollment = await db.enrollment.findUnique({
       where: { userId_courseId: { userId: user.id!, courseId } },
+      include: { course: { select: { title: true } } }
     })
     if (!enrollment) return { success: false, error: 'Belum terdaftar di kursus ini' }
 
@@ -221,6 +223,8 @@ export async function completeLesson(
         type: 'COURSE',
         referenceId: courseId,
       })
+      // Award points for course completion
+      await awardPoints(user.id!, 100, `Menyelesaikan kursus: ${enrollment.course.title}`)
     }
 
     revalidatePath(`/portal/my-courses/${courseId}`)

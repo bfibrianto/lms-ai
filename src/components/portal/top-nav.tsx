@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { GraduationCap, Menu } from 'lucide-react'
+import { GraduationCap, Menu, Award } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { portalNav } from '@/config/navigation'
 import { ThemeToggle } from '@/components/layout/theme-toggle'
@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/sheet'
 
 interface TopNavProps {
-  user: { name: string; email: string; role: string }
+  user: { name: string; email: string; role: string; points?: number }
 }
 
 export function TopNav({ user }: TopNavProps) {
@@ -57,6 +57,10 @@ export function TopNav({ user }: TopNavProps) {
 
         {/* Right side */}
         <div className="ml-auto flex items-center gap-1">
+          <div className="mr-2 hidden items-center justify-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-sm font-bold text-amber-700 dark:bg-amber-900/30 dark:text-amber-500 sm:flex">
+            <Award className="h-4 w-4" />
+            <span>{user.points || 0} PTS</span>
+          </div>
           <NotificationBell />
           <ThemeToggle />
           <UserMenu user={user} />
