@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { isBackofficeRole } from '@/lib/roles'
 import { TopNav } from '@/components/portal/top-nav'
+import { db } from '@/lib/db'
 
 export default async function PortalLayout({
   children,
@@ -18,10 +19,16 @@ export default async function PortalLayout({
     redirect('/backoffice/dashboard')
   }
 
+  const dbUser = await db.user.findUnique({
+    where: { id: session.user.id },
+    select: { points: true },
+  })
+
   const user = {
     name: session.user.name ?? '',
     email: session.user.email ?? '',
     role: session.user.role,
+    points: dbUser?.points ?? 0,
   }
 
   return (

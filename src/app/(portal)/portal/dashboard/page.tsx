@@ -17,7 +17,11 @@ import {
   TrendingUp,
   ArrowRight,
   PlayCircle,
+  Award,
+  Clock,
 } from 'lucide-react'
+import { formatDistanceToNow } from 'date-fns'
+import { id as localeId } from 'date-fns/locale'
 
 const levelLabels: Record<string, string> = {
   BEGINNER: 'Pemula',
@@ -36,7 +40,7 @@ const enrollmentStatusConfig: Record<
 }
 
 async function getUserStats(userId: string) {
-  const [enrollments, availableCourses, totalEnrolled, completed, inProgress] =
+  const [enrollments, availableCourses, totalEnrolled, completed, inProgress, recentPoints] =
     await Promise.all([
       db.enrollment.findMany({
         where: { userId },
@@ -60,9 +64,15 @@ async function getUserStats(userId: string) {
       db.enrollment.count({ where: { userId } }),
       db.enrollment.count({ where: { userId, status: 'COMPLETED' } }),
       db.enrollment.count({ where: { userId, status: 'IN_PROGRESS' } }),
+      db.pointHistory.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+        select: { id: true, amount: true, reason: true, createdAt: true },
+      }),
     ])
 
-  return { enrollments, availableCourses, totalEnrolled, completed, inProgress }
+  return { enrollments, availableCourses, totalEnrolled, completed, inProgress, recentPoints }
 }
 
 export default async function PortalDashboard() {
@@ -146,73 +156,128 @@ export default async function PortalDashboard() {
         </Card>
       </div>
 
-      {/* Recent Enrollments */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Kursus Terkini</CardTitle>
-            <Button asChild variant="ghost" size="sm" className="text-xs">
-              <Link href="/portal/my-courses">
-                Lihat semua
-                <ArrowRight className="ml-1 h-3.5 w-3.5" />
-              </Link>
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          {stats.enrollments.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <BookOpen className="mb-3 h-10 w-10 text-muted-foreground/40" />
-              <p className="text-sm text-muted-foreground">
-                Kamu belum mendaftar kursus apapun.
-              </p>
-              <Button asChild size="sm" className="mt-4">
-                <Link href="/portal/courses">Jelajahi Kursus</Link>
+      {/* Recent Enrollments & Point History */}
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Recent Enrollments */}
+        <Card className="flex flex-col">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">Kursus Terkini</CardTitle>
+              <Button asChild variant="ghost" size="sm" className="text-xs">
+                <Link href="/portal/my-courses">
+                  Semua
+                  <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                </Link>
               </Button>
             </div>
-          ) : (
-            <div className="divide-y">
-              {stats.enrollments.map((enrollment) => {
-                const sc = enrollmentStatusConfig[enrollment.status] ?? {
-                  label: enrollment.status,
-                  variant: 'secondary' as const,
-                }
-                return (
-                  <Link
-                    key={enrollment.id}
-                    href={`/portal/my-courses/${enrollment.course.id}`}
-                    className="flex items-center gap-4 px-6 py-3 transition-colors hover:bg-accent"
-                  >
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                      <BookOpen className="h-4 w-4 text-primary" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">
-                        {enrollment.course.title}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {levelLabels[enrollment.course.level] ??
-                          enrollment.course.level}{' '}
-                        · {enrollment.course._count.modules} modul
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1">
-                      <Badge variant={sc.variant} className="text-xs">
-                        {sc.label}
-                      </Badge>
-                      {enrollment.progress > 0 && (
-                        <span className="text-xs text-muted-foreground">
-                          {enrollment.progress}%
-                        </span>
-                      )}
-                    </div>
-                  </Link>
-                )
-              })}
+          </CardHeader>
+          <CardContent className="p-0 flex-1">
+            {stats.enrollments.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center h-full">
+                <BookOpen className="mb-3 h-10 w-10 text-muted-foreground/40" />
+                <p className="text-sm text-muted-foreground">
+                  Kamu belum mendaftar kursus.
+                </p>
+                <Button asChild size="sm" className="mt-4">
+                  <Link href="/portal/courses">Jelajah</Link>
+                </Button>
+              </div>
+            ) : (
+              <div className="divide-y">
+                {stats.enrollments.map((enrollment) => {
+                  const sc = enrollmentStatusConfig[enrollment.status] ?? {
+                    label: enrollment.status,
+                    variant: 'secondary' as const,
+                  }
+                  return (
+                    <Link
+                      key={enrollment.id}
+                      href={`/portal/my-courses/${enrollment.course.id}`}
+                      className="flex items-center gap-4 px-6 py-4 transition-colors hover:bg-accent"
+                    >
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                        <BookOpen className="h-4 w-4 text-primary" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">
+                          {enrollment.course.title}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {levelLabels[enrollment.course.level] ??
+                            enrollment.course.level}{' '}
+                          · {enrollment.course._count.modules} modul
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        <Badge variant={sc.variant} className="text-xs">
+                          {sc.label}
+                        </Badge>
+                        {enrollment.progress > 0 && (
+                          <span className="text-xs text-muted-foreground">
+                            {enrollment.progress}%
+                          </span>
+                        )}
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Point History */}
+        <Card className="flex flex-col">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Award className="h-5 w-5 text-amber-500" />
+                Riwayat Poin
+              </CardTitle>
+              <Button asChild variant="ghost" size="sm" className="text-xs">
+                <Link href="/portal/leaderboard">
+                  Leaderboard
+                  <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                </Link>
+              </Button>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardHeader>
+          <CardContent className="p-0 flex-1">
+            {stats.recentPoints.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center h-full">
+                <div className="rounded-full bg-amber-100 p-3 mb-3 dark:bg-amber-900/30">
+                  <Award className="h-8 w-8 text-amber-500/50" />
+                </div>
+                <p className="text-sm text-muted-foreground max-w-[200px]">
+                  Selesaikan kursus dan kuis untuk mulai mengumpulkan poin!
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y relative h-full">
+                {stats.recentPoints.map((point) => (
+                  <div
+                    key={point.id}
+                    className="flex items-start gap-4 px-6 py-4"
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
+                      <span className="text-sm font-bold text-amber-600 dark:text-amber-500">+{point.amount}</span>
+                    </div>
+                    <div className="min-w-0 flex-1 pt-1">
+                      <p className="text-sm font-medium leading-tight">
+                        {point.reason || 'Bonus Poin'}
+                      </p>
+                      <div className="flex items-center gap-1 mt-1.5 text-xs text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        {formatDistanceToNow(point.createdAt, { addSuffix: true, locale: localeId })}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Available courses promo */}
       {stats.availableCourses > 0 && (
