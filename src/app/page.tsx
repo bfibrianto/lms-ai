@@ -12,7 +12,7 @@ import { LandingFooter } from '@/components/landing/landing-footer'
 export const metadata: Metadata = {
     title: 'Sitamoto Academy — AI-Powered Learning Platform',
     description:
-        'Platform LMS internal bertenaga AI untuk pengembangan kompetensi karyawan. Buat kursus, quiz, dan sertifikat dengan mudah.',
+        'Platform LMS internal bertenaga AI untuk pengembangan kompetensi Anda. Buat kursus, quiz, dan sertifikat dengan mudah.',
 }
 
 export default async function NewLandingPage() {

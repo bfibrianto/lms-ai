@@ -26,9 +26,9 @@ export function LandingHero() {
                 </h1>
 
                 <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground sm:text-xl">
-                    Platform learning management system internal yang dilengkapi AI untuk
-                    mempercepat pembuatan konten, tracking progress, dan pengembangan
-                    kompetensi karyawan.
+                    Platform online course yang dilengkapi AI untuk
+                    mempermudah pembelajar, tracking progress, dan pengembangan
+                    kompetensi Anda.
                 </p>
 
                 <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -45,7 +45,7 @@ export function LandingHero() {
 
                 {/* Trust line */}
                 <p className="mt-14 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                    Dipercaya oleh berbagai organisasi di Indonesia
+                    Dipercaya oleh banyak pembelajar di Indonesia
                 </p>
             </div>
         </section>

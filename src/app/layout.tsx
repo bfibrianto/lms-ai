@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'LMS Internal',
+  title: 'Sitamoto Academy',
   description: 'Learning Management System untuk Organisasi',
 }
 
