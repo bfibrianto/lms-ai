@@ -7,9 +7,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import {
-  ChevronUp,
-  ChevronDown,
-  GripVertical,
   Plus,
   Pencil,
   Video,
@@ -17,8 +14,7 @@ import {
   AlignLeft,
   Clock,
 } from 'lucide-react'
-import { updateModuleTitle, reorderModule } from '@/lib/actions/modules'
-import { reorderLesson } from '@/lib/actions/lessons'
+import { updateModuleTitle } from '@/lib/actions/modules'
 import { DeleteModuleDialog } from './delete-module-dialog'
 import { DeleteLessonDialog } from './delete-lesson-dialog'
 import { GenerateLessonsDialog } from './generate-lessons-dialog'
@@ -40,8 +36,6 @@ interface ModuleCardProps {
   module: ModuleWithLessons
   courseTitle: string
   canEdit: boolean
-  isFirst: boolean
-  isLast: boolean
   onEditLesson: (lesson: LessonDetail) => void
   onAddLesson: () => void
 }
@@ -50,8 +44,6 @@ export function ModuleCard({
   module,
   courseTitle,
   canEdit,
-  isFirst,
-  isLast,
   onEditLesson,
   onAddLesson,
 }: ModuleCardProps) {
@@ -90,25 +82,9 @@ export function ModuleCard({
     })
   }
 
-  function handleReorderModule(direction: 'up' | 'down') {
-    startTransition(async () => {
-      const result = await reorderModule(module.id, direction)
-      if (!result.success) toast.error(result.error)
-    })
-  }
-
-  function handleReorderLesson(lessonId: string, direction: 'up' | 'down') {
-    startTransition(async () => {
-      const result = await reorderLesson(lessonId, direction)
-      if (!result.success) toast.error(result.error)
-    })
-  }
-
   return (
     <Card>
       <CardHeader className="flex flex-row items-center gap-2 py-3">
-        <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground" />
-
         {/* Inline title edit */}
         <div className="flex-1">
           {isEditingTitle ? (
@@ -142,29 +118,9 @@ export function ModuleCard({
           {module.lessons.length} pelajaran
         </Badge>
 
-        {/* Reorder + Delete */}
+        {/* Delete module */}
         {canEdit && (
           <div className="flex shrink-0 items-center gap-0.5">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              disabled={isFirst || isPending}
-              onClick={() => handleReorderModule('up')}
-              aria-label="Pindah ke atas"
-            >
-              <ChevronUp className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              disabled={isLast || isPending}
-              onClick={() => handleReorderModule('down')}
-              aria-label="Pindah ke bawah"
-            >
-              <ChevronDown className="h-3.5 w-3.5" />
-            </Button>
             <DeleteModuleDialog
               moduleId={module.id}
               moduleTitle={module.title}
@@ -180,7 +136,7 @@ export function ModuleCard({
           </p>
         )}
 
-        {module.lessons.map((lesson, idx) => (
+        {module.lessons.map((lesson) => (
           <div
             key={lesson.id}
             className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted/50"
@@ -201,26 +157,6 @@ export function ModuleCard({
 
             {canEdit && (
               <div className="flex shrink-0 items-center gap-0.5">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  disabled={idx === 0 || isPending}
-                  onClick={() => handleReorderLesson(lesson.id, 'up')}
-                  aria-label="Pindah ke atas"
-                >
-                  <ChevronUp className="h-3 w-3" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  disabled={idx === module.lessons.length - 1 || isPending}
-                  onClick={() => handleReorderLesson(lesson.id, 'down')}
-                  aria-label="Pindah ke bawah"
-                >
-                  <ChevronDown className="h-3 w-3" />
-                </Button>
                 <Button
                   variant="ghost"
                   size="icon"

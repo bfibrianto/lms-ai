@@ -211,3 +211,28 @@ export async function bulkCreateLessons(
   if (courseId) revalidatePath(`/backoffice/courses/${courseId}`)
   return { success: true, data: { ids: createdIds } }
 }
+
+/**
+ * Batch reorder lessons within a module in a single transaction.
+ * Frontend sends the full ordered list after drag & drop.
+ */
+export async function batchReorderLessons(
+  moduleId: string,
+  lessons: Array<{ id: string; order: number }>
+): Promise<ActionResult<void>> {
+  await requireWriteAccess()
+
+  if (!lessons.length) {
+    return { success: false, error: 'Tidak ada pelajaran untuk diurutkan.' }
+  }
+
+  const updates = lessons.map((l) =>
+    db.lesson.update({ where: { id: l.id }, data: { order: l.order } })
+  )
+
+  await db.$transaction(updates)
+
+  const courseId = await getCourseIdFromModule(moduleId)
+  if (courseId) revalidatePath(`/backoffice/courses/${courseId}`)
+  return { success: true, data: undefined }
+}

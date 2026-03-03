@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition, useCallback, useEffect } from 'react'
+import Link from 'next/link'
 import {
   BookOpen,
   FileText,
@@ -11,6 +12,8 @@ import {
   PlayCircle,
   ExternalLink,
   Loader2,
+  HelpCircle,
+  Timer,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -37,8 +40,31 @@ interface CourseModule {
   lessons: Lesson[]
 }
 
+export interface QuizItem {
+  id: string
+  title: string
+  passingScore: number
+  duration: number | null
+  maxAttempts: number
+  order: number
+  _count: { questions: number }
+  lastAttempt?: { score: number | null; passed: boolean | null } | null
+}
+
+type SidebarItemType = 'MODULE' | 'QUIZ'
+
+interface SidebarItem {
+  id: string
+  type: SidebarItemType
+  title: string
+  order: number
+  moduleData?: CourseModule
+  quizData?: QuizItem
+}
+
 interface CoursePlayerProps {
   modules: CourseModule[]
+  quizzes?: QuizItem[]
   courseTitle: string
   courseId: string
   progress: number
@@ -175,6 +201,7 @@ function LessonViewer({ lesson }: { lesson: Lesson }) {
 
 export function CoursePlayer({
   modules,
+  quizzes = [],
   courseTitle,
   courseId,
   progress: initialProgress,
@@ -182,6 +209,24 @@ export function CoursePlayer({
   lastLessonId,
 }: CoursePlayerProps) {
   const allLessons = modules.flatMap((m) => m.lessons)
+
+  // Build unified sidebar items sorted by order
+  const sidebarItems: SidebarItem[] = [
+    ...modules.map((m) => ({
+      id: m.id,
+      type: 'MODULE' as const,
+      title: m.title,
+      order: m.order,
+      moduleData: m,
+    })),
+    ...quizzes.map((q) => ({
+      id: q.id,
+      type: 'QUIZ' as const,
+      title: q.title,
+      order: q.order,
+      quizData: q,
+    })),
+  ].sort((a, b) => a.order - b.order)
 
   // Resume from last accessed lesson, or first lesson
   const initialLessonId = lastLessonId && allLessons.some((l) => l.id === lastLessonId)
@@ -319,7 +364,47 @@ export function CoursePlayer({
           </p>
         </div>
         <div className="max-h-[calc(100vh-240px)] overflow-y-auto">
-          {modules.map((mod, modIdx) => {
+          {sidebarItems.map((item, itemIdx) => {
+            if (item.type === 'QUIZ' && item.quizData) {
+              const quiz = item.quizData
+              return (
+                <Link
+                  key={quiz.id}
+                  href={`/portal/my-courses/${courseId}/quiz/${quiz.id}`}
+                  className="flex items-center gap-3 border-l-2 border-blue-400 px-4 py-3 transition-colors hover:bg-blue-50 dark:hover:bg-blue-950/20"
+                >
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900">
+                    <HelpCircle className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-medium">{quiz.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {quiz._count.questions} soal · Passing: {quiz.passingScore}%
+                      {quiz.duration ? ` · ${quiz.duration}m` : ''}
+                    </p>
+                  </div>
+                  {quiz.lastAttempt ? (
+                    <Badge
+                      variant={quiz.lastAttempt.passed ? 'default' : 'destructive'}
+                      className="shrink-0 text-xs"
+                    >
+                      {quiz.lastAttempt.passed ? (
+                        <><CheckCircle2 className="mr-1 h-3 w-3" />{quiz.lastAttempt.score}%</>
+                      ) : (
+                        `${quiz.lastAttempt.score ?? '?'}%`
+                      )}
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="shrink-0 text-xs">
+                      Quiz
+                    </Badge>
+                  )}
+                </Link>
+              )
+            }
+
+            // MODULE item
+            const mod = item.moduleData!
             const isExpanded = expandedModules.has(mod.id)
             const moduleCompletedCount = mod.lessons.filter((l) =>
               completedIds.has(l.id)
@@ -336,7 +421,7 @@ export function CoursePlayer({
                     <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                   )}
                   <span className="text-sm font-medium">
-                    {modIdx + 1}. {mod.title}
+                    {mod.title}
                   </span>
                   <span className="ml-auto text-xs text-muted-foreground">
                     {moduleCompletedCount}/{mod.lessons.length}

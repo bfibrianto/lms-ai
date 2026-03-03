@@ -5,8 +5,9 @@ import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, HelpCircle, CheckCircle2, Timer } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { CoursePlayer } from '@/components/portal/courses/course-player'
+import type { QuizItem } from '@/components/portal/courses/course-player'
 
 const levelLabels: Record<string, string> = {
   BEGINNER: 'Pemula',
@@ -29,7 +30,7 @@ export default async function CoursePlayerPage({ params }: PageProps) {
 
   if (!enrollment) redirect('/portal/courses')
 
-  const [course, completedLessonIds, quizzes] = await Promise.all([
+  const [course, completedLessonIds, quizzesRaw] = await Promise.all([
     db.course.findUnique({
       where: { id: courseId, status: 'PUBLISHED' },
       select: {
@@ -64,13 +65,14 @@ export default async function CoursePlayerPage({ params }: PageProps) {
     getCompletedLessonIds(userId, courseId),
     db.quiz.findMany({
       where: { courseId },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { order: 'asc' },
       select: {
         id: true,
         title: true,
         passingScore: true,
         duration: true,
         maxAttempts: true,
+        order: true,
         _count: { select: { questions: true } },
         attempts: {
           where: { enrollmentId: enrollment.id },
@@ -83,6 +85,18 @@ export default async function CoursePlayerPage({ params }: PageProps) {
   ])
 
   if (!course) notFound()
+
+  // Map quiz data to QuizItem format with lastAttempt
+  const quizzes: QuizItem[] = quizzesRaw.map((q) => ({
+    id: q.id,
+    title: q.title,
+    passingScore: q.passingScore,
+    duration: q.duration,
+    maxAttempts: q.maxAttempts,
+    order: q.order,
+    _count: q._count,
+    lastAttempt: q.attempts[0] ?? null,
+  }))
 
   const totalLessons = course.modules.reduce(
     (acc, m) => acc + m.lessons.length,
@@ -108,6 +122,12 @@ export default async function CoursePlayerPage({ params }: PageProps) {
             </Badge>
             <span>·</span>
             <span>{totalLessons} pelajaran</span>
+            {quizzes.length > 0 && (
+              <>
+                <span>·</span>
+                <span>{quizzes.length} quiz</span>
+              </>
+            )}
           </div>
         </div>
         <div className="shrink-0 text-right">
@@ -126,71 +146,17 @@ export default async function CoursePlayerPage({ params }: PageProps) {
         />
       </div>
 
-      {/* Player */}
+      {/* Player — modules + quizzes inline */}
       <CoursePlayer
         modules={course.modules}
+        quizzes={quizzes}
         courseTitle={course.title}
         courseId={courseId}
         progress={enrollment.progress}
         completedLessonIds={completedLessonIds}
         lastLessonId={enrollment.lastLessonId}
       />
-
-      {/* Quiz section */}
-      {quizzes.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="flex items-center gap-2 text-base font-semibold">
-            <HelpCircle className="h-4 w-4" />
-            Quiz & Assessment
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {quizzes.map((quiz) => {
-              const lastAttempt = quiz.attempts[0]
-              return (
-                <Link
-                  key={quiz.id}
-                  href={`/portal/my-courses/${courseId}/quiz/${quiz.id}`}
-                  className="flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-accent"
-                >
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">{quiz.title}</p>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span>{quiz._count.questions} soal</span>
-                      <span>·</span>
-                      <span>Passing: {quiz.passingScore}%</span>
-                      {quiz.duration && (
-                        <>
-                          <span>·</span>
-                          <span className="flex items-center gap-0.5">
-                            <Timer className="h-3 w-3" />
-                            {quiz.duration}m
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  {lastAttempt ? (
-                    <Badge
-                      variant={lastAttempt.passed ? 'default' : 'destructive'}
-                      className="shrink-0"
-                    >
-                      {lastAttempt.passed ? (
-                        <><CheckCircle2 className="mr-1 h-3 w-3" />{lastAttempt.score}%</>
-                      ) : (
-                        `${lastAttempt.score ?? '?'}%`
-                      )}
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="shrink-0">
-                      Belum dicoba
-                    </Badge>
-                  )}
-                </Link>
-              )
-            })}
-          </div>
-        </div>
-      )}
     </div>
   )
 }
+

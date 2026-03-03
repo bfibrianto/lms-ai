@@ -147,3 +147,31 @@ export async function bulkCreateModules(
   revalidatePath(`/backoffice/courses/${courseId}`)
   return { success: true, data: undefined }
 }
+
+/**
+ * Batch reorder course items (modules and quizzes) in a single transaction.
+ * Frontend sends the full ordered list after drag & drop.
+ */
+export async function batchReorderCourseItems(
+  courseId: string,
+  items: Array<{ id: string; type: 'MODULE' | 'QUIZ'; order: number }>
+): Promise<ActionResult<void>> {
+  await requireWriteAccess()
+
+  if (!items.length) {
+    return { success: false, error: 'Tidak ada item untuk diurutkan.' }
+  }
+
+  const moduleUpdates = items
+    .filter((i) => i.type === 'MODULE')
+    .map((i) => db.module.update({ where: { id: i.id }, data: { order: i.order } }))
+
+  const quizUpdates = items
+    .filter((i) => i.type === 'QUIZ')
+    .map((i) => db.quiz.update({ where: { id: i.id }, data: { order: i.order } }))
+
+  await db.$transaction([...moduleUpdates, ...quizUpdates])
+
+  revalidatePath(`/backoffice/courses/${courseId}`)
+  return { success: true, data: undefined }
+}
