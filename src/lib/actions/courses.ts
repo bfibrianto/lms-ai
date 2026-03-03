@@ -73,6 +73,31 @@ export async function getCourses(params: {
   return { courses, total, totalPages: Math.ceil(total / pageSize) }
 }
 
+/** Public query – no auth required. Returns PUBLISHED courses for landing page. */
+export async function getPublishedCourses(limit = 12) {
+  return db.course.findMany({
+    where: { status: 'PUBLISHED' },
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      thumbnail: true,
+      level: true,
+      creator: { select: { name: true } },
+      _count: { select: { modules: true, enrollments: true } },
+      modules: {
+        select: {
+          _count: { select: { lessons: true } },
+        },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+  })
+}
+
+export type PublishedCourse = Awaited<ReturnType<typeof getPublishedCourses>>[number]
+
 export async function getCourseById(courseId: string): Promise<CourseDetail | null> {
   return db.course.findUnique({
     where: { id: courseId },
