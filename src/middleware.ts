@@ -28,7 +28,7 @@ export async function middleware(request: NextRequest) {
     )
   }
 
-  const isPublicPage = pathname === '/'
+  const isPublicPage = pathname === '/' || pathname === '/new-lp'
 
   if (!isAuthPage && !isPublicPage && !isLoggedIn) {
     return NextResponse.redirect(new URL('/auth/login', request.url))

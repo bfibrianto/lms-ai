@@ -71,10 +71,10 @@ export default async function NewLandingPage() {
 
                     <div className="flex items-center gap-3">
                         <Button variant="ghost" size="sm" asChild>
-                            <Link href="/auth/login">Masuk</Link>
+                            <Link href="/auth/signin">Masuk</Link>
                         </Button>
                         <Button size="sm" asChild>
-                            <Link href="/auth/login">Daftar</Link>
+                            <Link href="/auth/signin">Daftar</Link>
                         </Button>
                     </div>
                 </div>
@@ -130,7 +130,7 @@ export default async function NewLandingPage() {
                     </p>
                     <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
                         <Button size="lg" className="gap-2 px-8" asChild>
-                            <Link href="/auth/login">
+                            <Link href="/auth/signin">
                                 <GraduationCap className="h-5 w-5" />
                                 Mulai Sekarang
                             </Link>
