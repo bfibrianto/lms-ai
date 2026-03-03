@@ -8,6 +8,7 @@ import { getCourseById } from '@/lib/actions/courses'
 import { getQuizzesByCourse, getQuizDetail } from '@/lib/actions/quizzes'
 import { CourseBuilder } from '@/components/backoffice/courses/course-builder'
 import { QuizBuilder } from '@/components/backoffice/quizzes/quiz-builder'
+import { MarkdownRenderer } from '@/components/shared/markdown-renderer'
 import type { CourseStatus, CourseLevel } from '@/types/courses'
 
 interface PageProps {
@@ -73,7 +74,10 @@ export default async function CourseBuilderPage({ params }: PageProps) {
               Dibuat oleh {course.creator.name}
             </p>
             {course.description && (
-              <p className="text-sm text-muted-foreground">{course.description}</p>
+              <MarkdownRenderer
+                content={course.description}
+                className="text-muted-foreground"
+              />
             )}
           </div>
         </div>

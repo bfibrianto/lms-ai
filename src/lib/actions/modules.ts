@@ -118,3 +118,32 @@ export async function reorderModule(
   revalidatePath(`/backoffice/courses/${module.courseId}`)
   return { success: true, data: undefined }
 }
+
+export async function bulkCreateModules(
+  courseId: string,
+  titles: string[]
+): Promise<ActionResult<void>> {
+  await requireWriteAccess()
+
+  if (!titles.length) {
+    return { success: false, error: 'Tidak ada modul untuk dibuat.' }
+  }
+
+  const lastModule = await db.module.findFirst({
+    where: { courseId },
+    orderBy: { order: 'desc' },
+    select: { order: true },
+  })
+  const startOrder = (lastModule?.order ?? -1) + 1
+
+  await db.module.createMany({
+    data: titles.map((title, idx) => ({
+      courseId,
+      title: title.trim(),
+      order: startOrder + idx,
+    })),
+  })
+
+  revalidatePath(`/backoffice/courses/${courseId}`)
+  return { success: true, data: undefined }
+}

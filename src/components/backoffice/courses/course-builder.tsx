@@ -7,6 +7,7 @@ import { Plus } from 'lucide-react'
 import { addModule } from '@/lib/actions/modules'
 import { ModuleCard } from './module-card'
 import { LessonEditorSheet } from './lesson-editor-sheet'
+import { GenerateModulesDialog } from './generate-modules-dialog'
 import type { CourseDetail, LessonDetail } from '@/types/courses'
 
 interface CourseBuilderProps {
@@ -60,6 +61,7 @@ export function CourseBuilder({ initialData, canEdit }: CourseBuilderProps) {
         <ModuleCard
           key={module.id}
           module={module}
+          courseTitle={initialData.title}
           canEdit={canEdit}
           isFirst={idx === 0}
           isLast={idx === initialData.modules.length - 1}
@@ -69,15 +71,22 @@ export function CourseBuilder({ initialData, canEdit }: CourseBuilderProps) {
       ))}
 
       {canEdit && (
-        <Button
-          variant="outline"
-          onClick={handleAddModule}
-          disabled={isPending}
-          className="w-full border-dashed"
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          {isPending ? 'Menambahkan...' : 'Tambah Modul'}
-        </Button>
+        <div className="space-y-2">
+          <GenerateModulesDialog
+            courseId={initialData.id}
+            courseTitle={initialData.title}
+            courseDescription={initialData.description ?? ''}
+          />
+          <Button
+            variant="outline"
+            onClick={handleAddModule}
+            disabled={isPending}
+            className="w-full border-dashed"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            {isPending ? 'Menambahkan...' : 'Tambah Modul'}
+          </Button>
+        </div>
       )}
 
       {editingLesson && (

@@ -21,6 +21,7 @@ import { updateModuleTitle, reorderModule } from '@/lib/actions/modules'
 import { reorderLesson } from '@/lib/actions/lessons'
 import { DeleteModuleDialog } from './delete-module-dialog'
 import { DeleteLessonDialog } from './delete-lesson-dialog'
+import { GenerateLessonsDialog } from './generate-lessons-dialog'
 import type { ModuleWithLessons, LessonDetail, LessonType } from '@/types/courses'
 
 const LESSON_TYPE_ICON: Record<LessonType, React.ReactNode> = {
@@ -37,6 +38,7 @@ const LESSON_TYPE_LABEL: Record<LessonType, string> = {
 
 interface ModuleCardProps {
   module: ModuleWithLessons
+  courseTitle: string
   canEdit: boolean
   isFirst: boolean
   isLast: boolean
@@ -46,6 +48,7 @@ interface ModuleCardProps {
 
 export function ModuleCard({
   module,
+  courseTitle,
   canEdit,
   isFirst,
   isLast,
@@ -237,15 +240,21 @@ export function ModuleCard({
         ))}
 
         {canEdit && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onAddLesson}
-            className="mt-1 w-full text-xs text-muted-foreground"
-          >
-            <Plus className="mr-1.5 h-3 w-3" />
-            Tambah Pelajaran
-          </Button>
+          <div className="mt-1 flex items-center gap-1">
+            <GenerateLessonsDialog
+              moduleId={module.id}
+              moduleTitle={module.title}
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onAddLesson}
+              className="text-xs text-muted-foreground"
+            >
+              <Plus className="mr-1.5 h-3 w-3" />
+              Tambah Pelajaran
+            </Button>
+          </div>
         )}
       </CardContent>
     </Card>

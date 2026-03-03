@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { completeLesson, updateLastAccessed } from '@/lib/actions/enrollments'
 import { toast } from 'sonner'
+import { MarkdownRenderer } from '@/components/shared/markdown-renderer'
 
 interface Lesson {
   id: string
@@ -146,8 +147,8 @@ function LessonViewer({ lesson }: { lesson: Lesson }) {
           </div>
         )}
         {lesson.content && (
-          <div className="prose prose-sm max-w-none rounded-lg bg-secondary/30 p-4 text-sm leading-relaxed">
-            <p className="whitespace-pre-wrap">{lesson.content}</p>
+          <div className="rounded-lg bg-secondary/30 p-4">
+            <MarkdownRenderer content={lesson.content} />
           </div>
         )}
       </div>
@@ -159,8 +160,8 @@ function LessonViewer({ lesson }: { lesson: Lesson }) {
     <div className="space-y-4">
       <h2 className="text-xl font-semibold">{lesson.title}</h2>
       {lesson.content ? (
-        <div className="rounded-lg bg-secondary/30 p-6 text-sm leading-relaxed">
-          <p className="whitespace-pre-wrap text-foreground">{lesson.content}</p>
+        <div className="rounded-lg bg-secondary/30 p-6">
+          <MarkdownRenderer content={lesson.content} />
         </div>
       ) : (
         <div className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed py-16 text-center">

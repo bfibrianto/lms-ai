@@ -7,7 +7,7 @@ export const LESSON_TYPES = ['VIDEO', 'DOCUMENT', 'TEXT'] as const
 
 export const CreateCourseSchema = z.object({
   title: z.string().min(3, 'Judul minimal 3 karakter').max(200),
-  description: z.string().max(5000).optional().or(z.literal('')),
+  description: z.string().max(1000, 'Deskripsi maksimal 1000 karakter').optional().or(z.literal('')),
   thumbnail: z
     .string()
     .url('URL tidak valid')

@@ -174,3 +174,40 @@ export async function reorderLesson(
   revalidatePath(`/backoffice/courses/${lesson.module.courseId}`)
   return { success: true, data: undefined }
 }
+
+export async function bulkCreateLessons(
+  moduleId: string,
+  lessons: Array<{ title: string; type: 'TEXT' | 'VIDEO' | 'DOCUMENT' }>
+): Promise<ActionResult<{ ids: string[] }>> {
+  await requireWriteAccess()
+
+  if (!lessons.length) {
+    return { success: false, error: 'Tidak ada pelajaran untuk dibuat.' }
+  }
+
+  const lastLesson = await db.lesson.findFirst({
+    where: { moduleId },
+    orderBy: { order: 'desc' },
+    select: { order: true },
+  })
+  const startOrder = (lastLesson?.order ?? -1) + 1
+
+  // Use individual creates to get IDs back (createMany doesn't return IDs)
+  const createdIds: string[] = []
+  for (let i = 0; i < lessons.length; i++) {
+    const created = await db.lesson.create({
+      data: {
+        moduleId,
+        title: lessons[i].title.trim(),
+        type: lessons[i].type as LessonType,
+        order: startOrder + i,
+      },
+      select: { id: true },
+    })
+    createdIds.push(created.id)
+  }
+
+  const courseId = await getCourseIdFromModule(moduleId)
+  if (courseId) revalidatePath(`/backoffice/courses/${courseId}`)
+  return { success: true, data: { ids: createdIds } }
+}
