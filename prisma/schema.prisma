@@ -266,6 +266,7 @@ model Quiz {
   maxAttempts      Int           @default(1)
   shuffleQuestions Boolean       @default(false)
   showResult       Boolean       @default(true)
+  order            Int           @default(0)
   questions        Question[]
   attempts         QuizAttempt[]
   createdAt        DateTime      @default(now())

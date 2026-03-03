@@ -27,7 +27,7 @@ async function requireWriteAccess() {
 export async function getQuizzesByCourse(courseId: string) {
     return db.quiz.findMany({
         where: { courseId },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { order: 'asc' },
         select: {
             id: true,
             title: true,
@@ -35,6 +35,7 @@ export async function getQuizzesByCourse(courseId: string) {
             passingScore: true,
             duration: true,
             maxAttempts: true,
+            order: true,
             createdAt: true,
             _count: { select: { questions: true, attempts: true } },
         },

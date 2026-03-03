@@ -31,16 +31,22 @@ export async function createNotification(params: {
 }
 
 export async function getUnreadNotificationsCount() {
-    const session = await auth()
-    if (!session?.user?.id) return 0
+    try {
+        const session = await auth()
+        if (!session?.user?.id) return 0
 
-    const count = await db.notification.count({
-        where: {
-            userId: session.user.id,
-            isRead: false
-        }
-    })
-    return count
+        const count = await db.notification.count({
+            where: {
+                userId: session.user.id,
+                isRead: false
+            }
+        })
+        return count
+    } catch (error) {
+        // Table may not exist yet — don't crash the page
+        console.error('getUnreadNotificationsCount error:', error)
+        return 0
+    }
 }
 
 export async function getRecentNotifications(limit = 5) {

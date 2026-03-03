@@ -1,11 +1,12 @@
 'use client'
 
-import { useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
+import { Sparkles, Loader2, Eye, Pencil } from 'lucide-react'
 import {
   Form,
   FormControl,
@@ -26,14 +27,28 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from '@/components/ui/toggle-group'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import {
   CreateCourseSchema,
   EditCourseSchema,
   COURSE_LEVELS,
   COURSE_STATUSES,
 } from '@/lib/validations/courses'
 import { createCourse, updateCourse } from '@/lib/actions/courses'
+import { generateCourseDescriptionAction } from '@/lib/actions/ai'
 import { FileUploader } from '@/components/shared/upload-button'
-import { GenerateContentButton } from '@/components/shared/generate-content-button'
+import { MarkdownRenderer } from '@/components/shared/markdown-renderer'
 import type { CourseDetail } from '@/types/courses'
 
 type CreateValues = z.infer<typeof CreateCourseSchema>
@@ -62,6 +77,8 @@ const STATUS_LABELS: Record<typeof COURSE_STATUSES[number], string> = {
   ARCHIVED: 'Diarsipkan',
 }
 
+const DESC_MAX = 1000
+
 export function CourseForm(props: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -87,6 +104,14 @@ export function CourseForm(props: Props) {
         level: 'BEGINNER' as const,
       },
   })
+
+  // Description preview mode state
+  const [descMode, setDescMode] = useState<string>('edit')
+
+  // Generate dialog state
+  const [genDialogOpen, setGenDialogOpen] = useState(false)
+  const [genAdditionalContext, setGenAdditionalContext] = useState('')
+  const [isGenerating, setIsGenerating] = useState(false)
 
   function onSubmit(values: CreateValues | EditValues) {
     const formData = new FormData()
@@ -124,6 +149,36 @@ export function CourseForm(props: Props) {
     })
   }
 
+  async function handleGenerateDescription(onSuccess: (text: string) => void) {
+    const title = form.getValues('title')
+    if (!title || title.trim().length < 3) {
+      toast.error('Masukkan judul kursus terlebih dahulu (minimal 3 karakter).')
+      return
+    }
+
+    setIsGenerating(true)
+    try {
+      const res = await generateCourseDescriptionAction(
+        title,
+        genAdditionalContext.trim() || undefined
+      )
+      if (res.success && res.data) {
+        onSuccess(res.data)
+        setGenDialogOpen(false)
+        setGenAdditionalContext('')
+        toast.success('Deskripsi berhasil di-generate oleh AI.')
+      } else {
+        toast.error(res.error || 'Gagal menghasilkan deskripsi.')
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Terjadi kesalahan sistem.')
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  const descLength = form.watch('description')?.length ?? 0
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -149,22 +204,148 @@ export function CourseForm(props: Props) {
           render={({ field }) => (
             <FormItem>
               <div className="flex items-center justify-between">
-                <FormLabel>Deskripsi</FormLabel>
-                <GenerateContentButton
-                  title="Generate Deskripsi"
-                  context={`Tolong buatkan deskripsi kursus untuk: ${form.getValues('title')}.`}
-                  onSuccess={(text) => field.onChange(text)}
-                />
+                <FormLabel>
+                  Deskripsi{' '}
+                  <span className="text-muted-foreground text-xs font-normal">
+                    (Markdown didukung)
+                  </span>
+                </FormLabel>
+                <div className="flex items-center gap-2">
+                  <ToggleGroup
+                    type="single"
+                    value={descMode}
+                    onValueChange={(v) => v && setDescMode(v)}
+                    className="h-7"
+                  >
+                    <ToggleGroupItem
+                      value="edit"
+                      className="h-7 px-2 text-xs gap-1"
+                      aria-label="Mode edit"
+                    >
+                      <Pencil className="h-3 w-3" />
+                      Edit
+                    </ToggleGroupItem>
+                    <ToggleGroupItem
+                      value="preview"
+                      className="h-7 px-2 text-xs gap-1"
+                      aria-label="Mode preview"
+                    >
+                      <Eye className="h-3 w-3" />
+                      Preview
+                    </ToggleGroupItem>
+                  </ToggleGroup>
+
+                  {/* Generate Button with Dialog */}
+                  <Dialog open={genDialogOpen} onOpenChange={setGenDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        type="button"
+                        className="h-7 text-xs"
+                      >
+                        <Sparkles className="h-3 w-3 mr-1 text-primary" />
+                        Generate
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[425px]">
+                      <DialogHeader>
+                        <DialogTitle>Generate Deskripsi Kursus</DialogTitle>
+                        <DialogDescription>
+                          AI akan membuat deskripsi umum kursus berdasarkan judul.
+                          Anda dapat menambahkan instruksi tambahan jika diperlukan.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium">Judul Kursus</p>
+                          <p className="text-sm text-muted-foreground rounded-md border px-3 py-2">
+                            {form.watch('title') || (
+                              <span className="italic">Belum diisi</span>
+                            )}
+                          </p>
+                        </div>
+                        <div className="space-y-2">
+                          <label
+                            htmlFor="gen-context"
+                            className="text-sm font-medium"
+                          >
+                            Instruksi Tambahan{' '}
+                            <span className="text-muted-foreground font-normal">
+                              (opsional)
+                            </span>
+                          </label>
+                          <Textarea
+                            id="gen-context"
+                            placeholder="Contoh: Fokus pada manfaat praktis untuk pemula..."
+                            value={genAdditionalContext}
+                            onChange={(e) =>
+                              setGenAdditionalContext(e.target.value)
+                            }
+                            rows={3}
+                          />
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setGenDialogOpen(false)}
+                          disabled={isGenerating}
+                        >
+                          Batal
+                        </Button>
+                        <Button
+                          type="button"
+                          onClick={() =>
+                            handleGenerateDescription(field.onChange)
+                          }
+                          disabled={isGenerating}
+                        >
+                          {isGenerating && (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          )}
+                          Generate Sekarang
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </div>
+
               <FormControl>
-                <Textarea
-                  placeholder="Deskripsi singkat tentang kursus ini..."
-                  rows={4}
-                  {...field}
-                  value={field.value ?? ''}
-                />
+                {descMode === 'edit' ? (
+                  <Textarea
+                    placeholder="Deskripsi singkat tentang kursus ini..."
+                    rows={4}
+                    maxLength={DESC_MAX}
+                    {...field}
+                    value={field.value ?? ''}
+                  />
+                ) : (
+                  <div className="rounded-md border p-3 min-h-[120px]">
+                    <MarkdownRenderer
+                      content={
+                        field.value || '_Belum ada deskripsi._'
+                      }
+                      className="text-muted-foreground"
+                    />
+                  </div>
+                )}
               </FormControl>
-              <FormMessage />
+
+              {/* Character counter */}
+              <div className="flex items-center justify-between">
+                <FormMessage />
+                <p
+                  className={`text-xs ml-auto ${descLength > 900
+                      ? 'text-destructive'
+                      : 'text-muted-foreground'
+                    }`}
+                >
+                  {descLength} / {DESC_MAX}
+                </p>
+              </div>
             </FormItem>
           )}
         />

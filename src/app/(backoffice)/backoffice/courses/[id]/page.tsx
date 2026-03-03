@@ -8,6 +8,7 @@ import { getCourseById } from '@/lib/actions/courses'
 import { getQuizzesByCourse, getQuizDetail } from '@/lib/actions/quizzes'
 import { CourseBuilder } from '@/components/backoffice/courses/course-builder'
 import { QuizBuilder } from '@/components/backoffice/quizzes/quiz-builder'
+import { MarkdownRenderer } from '@/components/shared/markdown-renderer'
 import type { CourseStatus, CourseLevel } from '@/types/courses'
 
 interface PageProps {
@@ -42,7 +43,7 @@ export default async function CourseBuilderPage({ params }: PageProps) {
   ])
   if (!course) notFound()
 
-  // Fetch full detail for each quiz (with questions)
+  // Fetch full detail for each quiz (with questions) — for the editor
   const quizzes = await Promise.all(
     quizList.map((q) => getQuizDetail(q.id))
   ).then((results) => results.filter(Boolean)) as NonNullable<Awaited<ReturnType<typeof getQuizDetail>>>[]
@@ -73,7 +74,10 @@ export default async function CourseBuilderPage({ params }: PageProps) {
               Dibuat oleh {course.creator.name}
             </p>
             {course.description && (
-              <p className="text-sm text-muted-foreground">{course.description}</p>
+              <MarkdownRenderer
+                content={course.description}
+                className="text-muted-foreground"
+              />
             )}
           </div>
         </div>
@@ -87,15 +91,15 @@ export default async function CourseBuilderPage({ params }: PageProps) {
         )}
       </div>
 
-      {/* Builder */}
+      {/* Unified Course Builder (Modules + Quizzes ordered) */}
       <div>
         <h2 className="mb-3 text-base font-semibold">Konten Kursus</h2>
-        <CourseBuilder initialData={course} canEdit={canEdit} />
+        <CourseBuilder initialData={course} quizzes={quizList} canEdit={canEdit} />
       </div>
 
-      {/* Quiz Builder */}
+      {/* Quiz Editor — for editing quiz content & questions */}
       <div>
-        <h2 className="mb-3 text-base font-semibold">Quiz & Assessment</h2>
+        <h2 className="mb-3 text-base font-semibold">Quiz & Assessment — Editor</h2>
         <QuizBuilder courseId={id} quizzes={quizzes} canEdit={canEdit} />
       </div>
     </div>

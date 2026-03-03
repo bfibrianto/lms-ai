@@ -50,3 +50,27 @@ export type CourseDetail = {
 export type ActionResult<T = void> =
   | { success: true; data: T }
   | { success: false; error: string; fieldErrors?: Record<string, string[]> }
+
+// ─── Unified Course Items (Module + Quiz) ─────────────────
+
+export type QuizSummary = {
+  id: string
+  title: string
+  description: string | null
+  passingScore: number
+  duration: number | null
+  maxAttempts: number
+  order: number
+  _count: { questions: number }
+}
+
+export type CourseItemType = 'MODULE' | 'QUIZ'
+
+export type CourseItem = {
+  id: string
+  type: CourseItemType
+  title: string
+  order: number
+  moduleData?: ModuleWithLessons
+  quizData?: QuizSummary
+}
