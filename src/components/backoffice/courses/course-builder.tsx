@@ -46,7 +46,7 @@ export function CourseBuilder({ initialData, quizzes, canEdit }: CourseBuilderPr
   const [editingLesson, setEditingLesson] = useState<EditingLesson | null>(null)
 
   // ─── Unified items state (modules + quizzes) ────────────
-  const [items, setItems] = useState<CourseItem[]>(() => {
+  function buildItems(): CourseItem[] {
     const moduleItems: CourseItem[] = initialData.modules.map((m) => ({
       id: m.id,
       type: 'MODULE' as const,
@@ -62,7 +62,15 @@ export function CourseBuilder({ initialData, quizzes, canEdit }: CourseBuilderPr
       quizData: q,
     }))
     return [...moduleItems, ...quizItems].sort((a, b) => a.order - b.order)
-  })
+  }
+
+  const [items, setItems] = useState<CourseItem[]>(buildItems)
+
+  // Sync items when server data changes (e.g. after revalidatePath on lesson/module CRUD)
+  useEffect(() => {
+    setItems(buildItems())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialData, quizzes])
 
   // ─── Autosave for reorder ───────────────────────────────
   const [orderSaveStatus, setOrderSaveStatus] = useState<AutosaveStatus>('idle')

@@ -1,6 +1,7 @@
 'use client'
 
 import { useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { signOut } from 'next-auth/react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
@@ -11,8 +12,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { LogOut } from 'lucide-react'
-import { roleLabels } from '@/lib/roles'
+import { LogOut, Settings } from 'lucide-react'
+import { roleLabels, isBackofficeRole } from '@/lib/roles'
 
 interface UserMenuProps {
   user: { name: string; email: string; role: string }
@@ -20,6 +21,7 @@ interface UserMenuProps {
 
 export function UserMenu({ user }: UserMenuProps) {
   const [isPending, startTransition] = useTransition()
+  const router = useRouter()
 
   const initials = user.name
     .split(' ')
@@ -33,6 +35,10 @@ export function UserMenu({ user }: UserMenuProps) {
       signOut({ callbackUrl: '/auth/login' })
     })
   }
+
+  const accountPath = isBackofficeRole(user.role)
+    ? '/backoffice/account'
+    : '/portal/account'
 
   return (
     <DropdownMenu>
@@ -51,6 +57,14 @@ export function UserMenu({ user }: UserMenuProps) {
             {roleLabels[user.role] || user.role}
           </p>
         </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={() => router.push(accountPath)}
+          className="cursor-pointer"
+        >
+          <Settings className="mr-2 h-4 w-4" />
+          Pengaturan Akun
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={handleSignOut}
