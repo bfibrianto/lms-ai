@@ -49,6 +49,7 @@ import { createCourse, updateCourse } from '@/lib/actions/courses'
 import { generateCourseDescriptionAction } from '@/lib/actions/ai'
 import { FileUploader } from '@/components/shared/upload-button'
 import { MarkdownRenderer } from '@/components/shared/markdown-renderer'
+import { MonetizationSection } from '@/components/shared/monetization-section'
 import type { CourseDetail } from '@/types/courses'
 
 type CreateValues = z.infer<typeof CreateCourseSchema>
@@ -96,12 +97,18 @@ export function CourseForm(props: Props) {
         thumbnail: course!.thumbnail ?? '',
         level: course!.level,
         status: course!.status,
+        visibility: (course as any).visibility ?? 'INTERNAL',
+        price: (course as any).price ? Number((course as any).price) : null,
+        promoPrice: (course as any).promoPrice ? Number((course as any).promoPrice) : null,
       }
       : {
         title: '',
         description: '',
         thumbnail: '',
         level: 'BEGINNER' as const,
+        visibility: 'INTERNAL' as const,
+        price: null,
+        promoPrice: null,
       },
   })
 
@@ -339,8 +346,8 @@ export function CourseForm(props: Props) {
                 <FormMessage />
                 <p
                   className={`text-xs ml-auto ${descLength > 900
-                      ? 'text-destructive'
-                      : 'text-muted-foreground'
+                    ? 'text-destructive'
+                    : 'text-muted-foreground'
                     }`}
                 >
                   {descLength} / {DESC_MAX}
@@ -427,6 +434,9 @@ export function CourseForm(props: Props) {
             />
           )}
         </div>
+
+        {/* Monetization */}
+        <MonetizationSection form={form} />
 
         {/* Actions */}
         <div className="flex gap-3">

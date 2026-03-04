@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { MonetizationFieldsSchema, validateMonetization } from './monetization'
 
 export const TRAINING_TYPES = ['WORKSHOP', 'SEMINAR', 'BOOTCAMP'] as const
 export const TRAINING_STATUSES = [
@@ -47,14 +48,31 @@ export const CreateTrainingSchema = z
     onlineUrl: z.string().url('URL tidak valid').optional().or(z.literal('')),
     capacity: z.coerce.number().int().positive().optional().or(z.literal('')),
   })
+  .merge(MonetizationFieldsSchema)
   .refine((data) => new Date(data.endDate) >= new Date(data.startDate), {
     message: 'Tanggal selesai harus setelah tanggal mulai',
     path: ['endDate'],
   })
+  .superRefine(validateMonetization)
 
-export const EditTrainingSchema = CreateTrainingSchema.extend({
-  status: z.enum(TRAINING_STATUSES, { message: 'Pilih status' }),
-})
+export const EditTrainingSchema = z
+  .object({
+    title: z.string().min(3, 'Judul minimal 3 karakter'),
+    description: z.string().optional(),
+    type: z.enum(TRAINING_TYPES, { message: 'Pilih tipe pelatihan' }),
+    startDate: z.string().min(1, 'Tanggal mulai wajib diisi'),
+    endDate: z.string().min(1, 'Tanggal selesai wajib diisi'),
+    location: z.string().optional(),
+    onlineUrl: z.string().url('URL tidak valid').optional().or(z.literal('')),
+    capacity: z.coerce.number().int().positive().optional().or(z.literal('')),
+    status: z.enum(TRAINING_STATUSES, { message: 'Pilih status' }),
+  })
+  .merge(MonetizationFieldsSchema)
+  .refine((data) => new Date(data.endDate) >= new Date(data.startDate), {
+    message: 'Tanggal selesai harus setelah tanggal mulai',
+    path: ['endDate'],
+  })
+  .superRefine(validateMonetization)
 
 export type CreateTrainingInput = z.infer<typeof CreateTrainingSchema>
 export type EditTrainingInput = z.infer<typeof EditTrainingSchema>

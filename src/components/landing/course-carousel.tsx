@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ChevronLeft, ChevronRight, BookOpen, Users } from 'lucide-react'
 import type { PublishedCourse } from '@/lib/actions/courses'
+import { PriceDisplay } from '@/components/shared/price-display'
 
 const LEVEL_LABEL: Record<string, string> = {
     BEGINNER: 'Pemula',
@@ -137,6 +138,17 @@ export function CourseCarousel({ courses }: CourseCarouselProps) {
                                         <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
                                             <Users className="h-3 w-3" />
                                             {course._count.enrollments} peserta
+                                        </div>
+                                    )}
+
+                                    {/* Price */}
+                                    {course.price != null && (
+                                        <div className="mt-2 pt-2 border-t">
+                                            <PriceDisplay
+                                                price={Number(course.price)}
+                                                promoPrice={course.promoPrice ? Number(course.promoPrice) : null}
+                                                size="sm"
+                                            />
                                         </div>
                                     )}
                                 </div>

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { MonetizationFieldsSchema, validateMonetization } from './monetization'
 
 // Client-safe enums (mirror Prisma — no server imports)
 export const COURSE_STATUSES = ['DRAFT', 'PUBLISHED', 'ARCHIVED'] as const
@@ -14,11 +15,19 @@ export const CreateCourseSchema = z.object({
     .optional()
     .or(z.literal('')),
   level: z.enum(COURSE_LEVELS),
-})
+}).merge(MonetizationFieldsSchema).superRefine(validateMonetization)
 
-export const EditCourseSchema = CreateCourseSchema.extend({
+export const EditCourseSchema = z.object({
+  title: z.string().min(3, 'Judul minimal 3 karakter').max(200),
+  description: z.string().max(1000, 'Deskripsi maksimal 1000 karakter').optional().or(z.literal('')),
+  thumbnail: z
+    .string()
+    .url('URL tidak valid')
+    .optional()
+    .or(z.literal('')),
+  level: z.enum(COURSE_LEVELS),
   status: z.enum(COURSE_STATUSES),
-})
+}).merge(MonetizationFieldsSchema).superRefine(validateMonetization)
 
 export const EditLessonSchema = z.object({
   title: z.string().min(2, 'Judul pelajaran minimal 2 karakter').max(200),

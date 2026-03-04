@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { MonetizationFieldsSchema, validateMonetization } from './monetization'
 
 
 export const CreateLearningPathSchema = z.object({
@@ -10,7 +11,7 @@ export const CreateLearningPathSchema = z.object({
         if (typeof window === 'undefined') return true;
         return val instanceof File;
     }, 'Thumbnail tidak valid').optional().nullable(),
-})
+}).merge(MonetizationFieldsSchema).superRefine(validateMonetization)
 
 export type CreateLearningPathInput = z.infer<typeof CreateLearningPathSchema>
 

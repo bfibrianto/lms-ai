@@ -73,16 +73,18 @@ export async function getCourses(params: {
   return { courses, total, totalPages: Math.ceil(total / pageSize) }
 }
 
-/** Public query – no auth required. Returns PUBLISHED courses for landing page. */
+/** Public query – no auth required. Returns PUBLISHED + PUBLIC courses for landing page. */
 export async function getPublishedCourses(limit = 12) {
   return db.course.findMany({
-    where: { status: 'PUBLISHED' },
+    where: { status: 'PUBLISHED', visibility: 'PUBLIC' },
     select: {
       id: true,
       title: true,
       description: true,
       thumbnail: true,
       level: true,
+      price: true,
+      promoPrice: true,
       creator: { select: { name: true } },
       _count: { select: { modules: true, enrollments: true } },
       modules: {
@@ -153,6 +155,9 @@ export async function createCourse(
     description: formData.get('description'),
     thumbnail: formData.get('thumbnail'),
     level: formData.get('level'),
+    visibility: formData.get('visibility') || 'INTERNAL',
+    price: formData.get('price'),
+    promoPrice: formData.get('promoPrice'),
   }
 
   const parsed = CreateCourseSchema.safeParse(raw)
@@ -171,6 +176,9 @@ export async function createCourse(
       thumbnail: parsed.data.thumbnail || null,
       level: parsed.data.level as CourseLevel,
       status: CourseStatus.DRAFT,
+      visibility: parsed.data.visibility as any,
+      price: parsed.data.price,
+      promoPrice: parsed.data.promoPrice,
       creatorId: session.user.id,
     },
     select: { id: true },
@@ -192,6 +200,9 @@ export async function updateCourse(
     thumbnail: formData.get('thumbnail'),
     level: formData.get('level'),
     status: formData.get('status'),
+    visibility: formData.get('visibility') || 'INTERNAL',
+    price: formData.get('price'),
+    promoPrice: formData.get('promoPrice'),
   }
 
   const parsed = EditCourseSchema.safeParse(raw)
@@ -211,6 +222,9 @@ export async function updateCourse(
       thumbnail: parsed.data.thumbnail || null,
       level: parsed.data.level as CourseLevel,
       status: parsed.data.status as CourseStatus,
+      visibility: parsed.data.visibility as any,
+      price: parsed.data.price,
+      promoPrice: parsed.data.promoPrice,
     },
   })
 

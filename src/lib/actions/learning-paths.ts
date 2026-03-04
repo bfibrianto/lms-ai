@@ -49,6 +49,26 @@ export async function getLearningPathDetail(id: string) {
     return learningPath
 }
 
+/** Public query – no auth required. Returns PUBLISHED + PUBLIC learning paths for landing page. */
+export async function getPublishedLearningPaths(limit = 12) {
+    return db.learningPath.findMany({
+        where: { status: 'PUBLISHED', visibility: 'PUBLIC' },
+        select: {
+            id: true,
+            title: true,
+            description: true,
+            thumbnail: true,
+            price: true,
+            promoPrice: true,
+            _count: { select: { courses: true, enrollments: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+    })
+}
+
+export type PublishedLearningPath = Awaited<ReturnType<typeof getPublishedLearningPaths>>[number]
+
 export async function createLearningPath(formData: FormData) {
     const session = await auth()
     if (!session?.user) throw new Error('Unauthorized')
@@ -58,6 +78,9 @@ export async function createLearningPath(formData: FormData) {
         description: formData.get('description'),
         status: formData.get('status'),
         thumbnail: formData.get('thumbnail'),
+        visibility: formData.get('visibility') || 'INTERNAL',
+        price: formData.get('price'),
+        promoPrice: formData.get('promoPrice'),
     }
 
     const validatedData = CreateLearningPathSchema.safeParse(rawData)
@@ -66,7 +89,7 @@ export async function createLearningPath(formData: FormData) {
         return { error: 'Validasi gagal', details: validatedData.error.flatten().fieldErrors }
     }
 
-    const { title, description, status, thumbnail } = validatedData.data
+    const { title, description, status, thumbnail, visibility, price, promoPrice } = validatedData.data
 
     const path = await db.learningPath.create({
         data: {
@@ -74,6 +97,9 @@ export async function createLearningPath(formData: FormData) {
             description,
             status: status || 'DRAFT',
             thumbnail: typeof thumbnail === 'string' ? thumbnail : null,
+            visibility: visibility as any,
+            price,
+            promoPrice,
             creatorId: session.user.id,
         }
     })
@@ -94,6 +120,9 @@ export async function updateLearningPath(id: string, formData: FormData) {
         description: formData.get('description'),
         status: formData.get('status'),
         thumbnail: formData.get('thumbnail'),
+        visibility: formData.get('visibility') || 'INTERNAL',
+        price: formData.get('price'),
+        promoPrice: formData.get('promoPrice'),
     }
 
     const validatedData = CreateLearningPathSchema.safeParse(rawData)
@@ -102,7 +131,7 @@ export async function updateLearningPath(id: string, formData: FormData) {
         return { error: 'Validasi gagal', details: validatedData.error.flatten().fieldErrors }
     }
 
-    const { title, description, status, thumbnail } = validatedData.data
+    const { title, description, status, thumbnail, visibility, price, promoPrice } = validatedData.data
 
     await db.learningPath.update({
         where: { id },
@@ -111,6 +140,9 @@ export async function updateLearningPath(id: string, formData: FormData) {
             description,
             status: status || 'DRAFT',
             thumbnail: typeof thumbnail === 'string' ? thumbnail : null,
+            visibility: visibility as any,
+            price,
+            promoPrice,
         }
     })
 

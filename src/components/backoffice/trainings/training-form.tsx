@@ -31,6 +31,7 @@ import {
   type EditTrainingInput,
 } from '@/lib/validations/trainings'
 import type { TrainingDetail } from '@/types/trainings'
+import { MonetizationSection } from '@/components/shared/monetization-section'
 import { format } from 'date-fns'
 
 interface TrainingFormProps {
@@ -50,31 +51,37 @@ export function TrainingForm({ training }: TrainingFormProps) {
     resolver: zodResolver(isEdit ? EditTrainingSchema : CreateTrainingSchema),
     defaultValues: training
       ? {
-          title: training.title,
-          description: training.description ?? '',
-          type: training.type as 'WORKSHOP' | 'SEMINAR' | 'BOOTCAMP',
-          status: training.status as
-            | 'DRAFT'
-            | 'OPEN'
-            | 'CLOSED'
-            | 'COMPLETED'
-            | 'CANCELLED',
-          startDate: toDatetimeLocal(training.startDate),
-          endDate: toDatetimeLocal(training.endDate),
-          location: training.location ?? '',
-          onlineUrl: training.onlineUrl ?? '',
-          capacity: training.capacity ?? '',
-        }
+        title: training.title,
+        description: training.description ?? '',
+        type: training.type as 'WORKSHOP' | 'SEMINAR' | 'BOOTCAMP',
+        status: training.status as
+          | 'DRAFT'
+          | 'OPEN'
+          | 'CLOSED'
+          | 'COMPLETED'
+          | 'CANCELLED',
+        startDate: toDatetimeLocal(training.startDate),
+        endDate: toDatetimeLocal(training.endDate),
+        location: training.location ?? '',
+        onlineUrl: training.onlineUrl ?? '',
+        capacity: training.capacity ?? '',
+        visibility: (training as any).visibility ?? 'INTERNAL',
+        price: (training as any).price ? Number((training as any).price) : null,
+        promoPrice: (training as any).promoPrice ? Number((training as any).promoPrice) : null,
+      }
       : {
-          title: '',
-          description: '',
-          type: 'WORKSHOP' as const,
-          startDate: '',
-          endDate: '',
-          location: '',
-          onlineUrl: '',
-          capacity: '',
-        },
+        title: '',
+        description: '',
+        type: 'WORKSHOP' as const,
+        startDate: '',
+        endDate: '',
+        location: '',
+        onlineUrl: '',
+        capacity: '',
+        visibility: 'INTERNAL' as const,
+        price: null,
+        promoPrice: null,
+      },
   })
 
   function onSubmit(values: CreateTrainingInput | EditTrainingInput) {
@@ -295,6 +302,9 @@ export function TrainingForm({ training }: TrainingFormProps) {
             </FormItem>
           )}
         />
+
+        {/* Monetization */}
+        <MonetizationSection form={form} />
 
         {/* Actions */}
         <div className="flex gap-3">
