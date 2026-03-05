@@ -89,7 +89,7 @@ export function CourseCarousel({ courses }: CourseCarouselProps) {
                         return (
                             <Link
                                 key={course.id}
-                                href={`/portal/courses`}
+                                href={`/courses/${course.id}`}
                                 className="group flex w-[280px] shrink-0 flex-col overflow-hidden rounded-xl border bg-card transition-all hover:shadow-lg"
                                 style={{ scrollSnapAlign: 'start' }}
                             >

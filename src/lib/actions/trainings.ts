@@ -170,7 +170,7 @@ export async function getMyTrainingIds(userId: string): Promise<string[]> {
 
 /** Public query – no auth required. Returns OPEN + PUBLIC trainings for landing page. */
 export async function getPublishedTrainings(limit = 12) {
-  return db.training.findMany({
+  const trainings = await db.training.findMany({
     where: { status: 'OPEN', visibility: 'PUBLIC' },
     select: {
       id: true,
@@ -187,6 +187,12 @@ export async function getPublishedTrainings(limit = 12) {
     orderBy: { startDate: 'asc' },
     take: limit,
   })
+
+  return trainings.map((t) => ({
+    ...t,
+    price: t.price != null ? Number(t.price) : null,
+    promoPrice: t.promoPrice != null ? Number(t.promoPrice) : null,
+  }))
 }
 
 export type PublishedTraining = Awaited<ReturnType<typeof getPublishedTrainings>>[number]

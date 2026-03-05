@@ -23,3 +23,7 @@ export function getDiscountPercent(
     if (price <= 0) return 0
     return Math.round((1 - promoPrice / price) * 100)
 }
+
+// Aliases for convenience
+export const formatRupiah = formatCurrency
+export const calculateDiscount = getDiscountPercent
