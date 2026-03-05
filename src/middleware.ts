@@ -22,6 +22,11 @@ export async function middleware(request: NextRequest) {
 
   if (isApiAuth) return NextResponse.next()
 
+  // Catch NextAuth default signin redirect → redirect to our custom login page
+  if (pathname === '/auth/signin' || pathname === '/signin') {
+    return NextResponse.redirect(new URL('/auth/login', request.url))
+  }
+
   if (isAuthPage && isLoggedIn) {
     return NextResponse.redirect(
       new URL(getDashboardPath(token.role as string), request.url)
