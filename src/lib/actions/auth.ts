@@ -4,6 +4,8 @@ import { db } from '@/lib/db'
 import { Role } from '@/generated/prisma/client'
 import { hash } from 'bcryptjs'
 import { RegisterCustomerSchema } from '@/lib/validations/auth'
+import { signIn } from '@/lib/auth'
+import { AuthError } from 'next-auth'
 
 type ActionResult<T = void> = {
     success: boolean
@@ -67,4 +69,29 @@ export async function registerCustomer(
     })
 
     return { success: true, data: { id: user.id } }
+}
+
+/**
+ * Server-side login action.
+ * Uses signIn from auth.ts (server-side) to properly set cookies on Vercel.
+ */
+export async function loginAction(formData: FormData) {
+    try {
+        await signIn('credentials', {
+            email: formData.get('email') as string,
+            password: formData.get('password') as string,
+            redirectTo: '/dashboard',
+        })
+    } catch (error) {
+        if (error instanceof AuthError) {
+            switch (error.type) {
+                case 'CredentialsSignin':
+                    return { error: 'Email atau password salah.' }
+                default:
+                    return { error: 'Terjadi kesalahan saat login.' }
+            }
+        }
+        // NEXT_REDIRECT throws an error that must be re-thrown
+        throw error
+    }
 }

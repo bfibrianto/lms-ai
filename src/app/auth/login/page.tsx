@@ -1,8 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { signIn } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,9 +13,9 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { GraduationCap } from 'lucide-react'
+import { loginAction } from '@/lib/actions/auth'
 
 export default function LoginPage() {
-  const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -28,19 +26,18 @@ export default function LoginPage() {
 
     const formData = new FormData(e.currentTarget)
 
-    const result = await signIn('credentials', {
-      email: formData.get('email') as string,
-      password: formData.get('password') as string,
-      redirect: false,
-    })
-
-    setLoading(false)
-
-    if (result?.error) {
-      setError('Email atau password salah.')
-    } else {
-      router.push('/dashboard')
-      router.refresh()
+    try {
+      const result = await loginAction(formData)
+      // If loginAction returns (not throws), it means there was an error
+      if (result?.error) {
+        setError(result.error)
+      }
+    } catch {
+      // signIn redirects via throw — this is expected on success
+      // For any unexpected error:
+      setError('Terjadi kesalahan saat login.')
+    } finally {
+      setLoading(false)
     }
   }
 
