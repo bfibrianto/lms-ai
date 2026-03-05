@@ -28,7 +28,7 @@ export async function middleware(request: NextRequest) {
     )
   }
 
-  const isPublicPage = pathname === '/' || pathname === '/new-lp'
+  const isPublicPage = pathname === '/' || pathname === '/new-lp' || pathname.startsWith('/courses/')
 
   if (!isAuthPage && !isPublicPage && !isLoggedIn) {
     return NextResponse.redirect(new URL('/auth/login', request.url))

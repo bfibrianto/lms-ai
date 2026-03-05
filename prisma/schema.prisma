@@ -13,6 +13,7 @@ enum Role {
   MENTOR
   LEADER
   EMPLOYEE
+  CUSTOMER
 }
 
 enum CourseStatus {
@@ -64,6 +65,7 @@ model User {
   notifications         Notification[]
   points                Int                    @default(0)
   pointHistories        PointHistory[]
+  orders                Order[]
 
   @@map("users")
 }
@@ -115,6 +117,11 @@ enum EnrollmentStatus {
   DROPPED
 }
 
+enum Visibility {
+  INTERNAL
+  PUBLIC
+}
+
 model Course {
   id            String        @id @default(cuid())
   title         String
@@ -122,6 +129,9 @@ model Course {
   thumbnail     String?
   level         CourseLevel   @default(BEGINNER)
   status        CourseStatus  @default(DRAFT)
+  visibility    Visibility    @default(INTERNAL)
+  price         Decimal?      @db.Decimal(12,2)
+  promoPrice    Decimal?      @db.Decimal(12,2)
   creatorId     String
   creator       User          @relation("CourseCreator", fields: [creatorId], references: [id])
   modules       Module[]
@@ -181,6 +191,9 @@ model Training {
   description   String?                @db.Text
   type          TrainingType
   status        TrainingStatus         @default(DRAFT)
+  visibility    Visibility             @default(INTERNAL)
+  price         Decimal?               @db.Decimal(12,2)
+  promoPrice    Decimal?               @db.Decimal(12,2)
   startDate     DateTime
   endDate       DateTime
   location      String?
@@ -345,6 +358,9 @@ model LearningPath {
   description  String?            @db.Text
   thumbnail    String?
   status       LearningPathStatus @default(DRAFT)
+  visibility   Visibility         @default(INTERNAL)
+  price        Decimal?           @db.Decimal(12,2)
+  promoPrice   Decimal?           @db.Decimal(12,2)
   creatorId    String
   creator      User               @relation("PathCreator", fields: [creatorId], references: [id])
   courses      PathCourse[]
@@ -449,4 +465,37 @@ model PointHistory {
   createdAt DateTime @default(now())
 
   @@map("point_histories")
+}
+
+// ─── Orders ─────────────────────────────────────────────
+
+enum OrderStatus {
+  PENDING
+  PAID
+  CANCELLED
+  REFUNDED
+}
+
+enum OrderItemType {
+  COURSE
+  TRAINING
+  LEARNING_PATH
+}
+
+model Order {
+  id            String        @id @default(cuid())
+  userId        String
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  itemType      OrderItemType
+  itemId        String
+  itemTitle     String
+  price         Decimal       @db.Decimal(12, 2)
+  originalPrice Decimal       @db.Decimal(12, 2)
+  status        OrderStatus   @default(PENDING)
+  paidAt        DateTime?
+  notes         String?       @db.Text
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@map("orders")
 }

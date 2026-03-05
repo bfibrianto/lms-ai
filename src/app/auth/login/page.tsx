@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -86,6 +87,13 @@ export default function LoginPage() {
               {loading ? 'Memproses...' : 'Masuk'}
             </Button>
           </form>
+
+          <p className="mt-4 text-center text-sm text-muted-foreground">
+            Belum punya akun?{' '}
+            <Link href="/auth/register" className="font-medium text-primary hover:underline">
+              Daftar di sini
+            </Link>
+          </p>
         </CardContent>
       </Card>
     </div>

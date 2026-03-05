@@ -25,6 +25,7 @@ import { CreateLearningPathSchema, type CreateLearningPathInput } from '@/lib/va
 import { createLearningPath, updateLearningPath } from '@/lib/actions/learning-paths'
 import type { LearningPathDetail } from '@/types/learning-paths'
 import { FileUploader } from '@/components/shared/upload-button'
+import { MonetizationSection } from '@/components/shared/monetization-section'
 
 interface LearningPathFormProps {
     initialData?: LearningPathDetail
@@ -45,6 +46,9 @@ export function LearningPathForm({ initialData, isEdit }: LearningPathFormProps)
             description: initialData?.description || '',
             status: initialData?.status || 'DRAFT',
             thumbnail: null,
+            visibility: (initialData as any)?.visibility ?? 'INTERNAL',
+            price: (initialData as any)?.price ? Number((initialData as any).price) : null,
+            promoPrice: (initialData as any)?.promoPrice ? Number((initialData as any).promoPrice) : null,
         },
     })
 
@@ -55,6 +59,9 @@ export function LearningPathForm({ initialData, isEdit }: LearningPathFormProps)
             formData.append('title', data.title)
             if (data.description) formData.append('description', data.description)
             formData.append('status', data.status)
+            formData.append('visibility', (data as any).visibility || 'INTERNAL')
+            if ((data as any).price != null) formData.append('price', String((data as any).price))
+            if ((data as any).promoPrice != null) formData.append('promoPrice', String((data as any).promoPrice))
             if (data.thumbnail instanceof File) {
                 formData.append('thumbnail', data.thumbnail)
             } else if (typeof data.thumbnail === 'string' && data.thumbnail) {
@@ -183,6 +190,8 @@ export function LearningPathForm({ initialData, isEdit }: LearningPathFormProps)
                         </FormItem>
                     )}
                 />
+
+                <MonetizationSection form={form} />
 
                 <div className="flex justify-end gap-3">
                     <Button

@@ -168,6 +168,35 @@ export async function getMyTrainingIds(userId: string): Promise<string[]> {
   return regs.map((r) => r.trainingId)
 }
 
+/** Public query – no auth required. Returns OPEN + PUBLIC trainings for landing page. */
+export async function getPublishedTrainings(limit = 12) {
+  const trainings = await db.training.findMany({
+    where: { status: 'OPEN', visibility: 'PUBLIC' },
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      type: true,
+      startDate: true,
+      endDate: true,
+      location: true,
+      price: true,
+      promoPrice: true,
+      _count: { select: { registrations: true } },
+    },
+    orderBy: { startDate: 'asc' },
+    take: limit,
+  })
+
+  return trainings.map((t) => ({
+    ...t,
+    price: t.price != null ? Number(t.price) : null,
+    promoPrice: t.promoPrice != null ? Number(t.promoPrice) : null,
+  }))
+}
+
+export type PublishedTraining = Awaited<ReturnType<typeof getPublishedTrainings>>[number]
+
 // ── Mutations ────────────────────────────────────────────────────────────────
 
 export async function createTraining(formData: FormData) {
@@ -182,6 +211,9 @@ export async function createTraining(formData: FormData) {
     location: formData.get('location'),
     onlineUrl: formData.get('onlineUrl'),
     capacity: formData.get('capacity'),
+    visibility: formData.get('visibility') || 'INTERNAL',
+    price: formData.get('price'),
+    promoPrice: formData.get('promoPrice'),
   }
 
   const parsed = CreateTrainingSchema.safeParse(raw)
@@ -193,7 +225,7 @@ export async function createTraining(formData: FormData) {
     }
   }
 
-  const { title, description, type, startDate, endDate, location, onlineUrl, capacity } =
+  const { title, description, type, startDate, endDate, location, onlineUrl, capacity, visibility, price, promoPrice } =
     parsed.data
 
   try {
@@ -207,6 +239,9 @@ export async function createTraining(formData: FormData) {
         location: location || null,
         onlineUrl: onlineUrl || null,
         capacity: capacity ? Number(capacity) : null,
+        visibility: visibility as any,
+        price,
+        promoPrice,
         creatorId: user.id!,
       },
     })
@@ -230,6 +265,9 @@ export async function updateTraining(id: string, formData: FormData) {
     location: formData.get('location'),
     onlineUrl: formData.get('onlineUrl'),
     capacity: formData.get('capacity'),
+    visibility: formData.get('visibility') || 'INTERNAL',
+    price: formData.get('price'),
+    promoPrice: formData.get('promoPrice'),
   }
 
   const parsed = EditTrainingSchema.safeParse(raw)
@@ -241,7 +279,7 @@ export async function updateTraining(id: string, formData: FormData) {
     }
   }
 
-  const { title, description, type, status, startDate, endDate, location, onlineUrl, capacity } =
+  const { title, description, type, status, startDate, endDate, location, onlineUrl, capacity, visibility, price, promoPrice } =
     parsed.data
 
   try {
@@ -257,6 +295,9 @@ export async function updateTraining(id: string, formData: FormData) {
         location: location || null,
         onlineUrl: onlineUrl || null,
         capacity: capacity ? Number(capacity) : null,
+        visibility: visibility as any,
+        price,
+        promoPrice,
       },
     })
     revalidatePath('/backoffice/trainings')

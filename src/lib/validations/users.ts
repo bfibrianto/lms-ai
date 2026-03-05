@@ -7,6 +7,7 @@ export const ROLES = [
   'MENTOR',
   'LEADER',
   'EMPLOYEE',
+  'CUSTOMER',
 ] as const
 
 const UserBaseSchema = z.object({

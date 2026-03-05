@@ -73,16 +73,18 @@ export async function getCourses(params: {
   return { courses, total, totalPages: Math.ceil(total / pageSize) }
 }
 
-/** Public query – no auth required. Returns PUBLISHED courses for landing page. */
+/** Public query – no auth required. Returns PUBLISHED + PUBLIC courses for landing page. */
 export async function getPublishedCourses(limit = 12) {
-  return db.course.findMany({
-    where: { status: 'PUBLISHED' },
+  const courses = await db.course.findMany({
+    where: { status: 'PUBLISHED', visibility: 'PUBLIC' },
     select: {
       id: true,
       title: true,
       description: true,
       thumbnail: true,
       level: true,
+      price: true,
+      promoPrice: true,
       creator: { select: { name: true } },
       _count: { select: { modules: true, enrollments: true } },
       modules: {
@@ -94,9 +96,105 @@ export async function getPublishedCourses(limit = 12) {
     orderBy: { createdAt: 'desc' },
     take: limit,
   })
+
+  // Convert Decimal to Number for client serialization
+  return courses.map((c) => ({
+    ...c,
+    price: c.price != null ? Number(c.price) : null,
+    promoPrice: c.promoPrice != null ? Number(c.promoPrice) : null,
+  }))
 }
 
 export type PublishedCourse = Awaited<ReturnType<typeof getPublishedCourses>>[number]
+
+/** Public detail for a single course. No auth required. */
+export async function getCoursePublicDetail(courseId: string) {
+  const course = await db.course.findUnique({
+    where: { id: courseId, visibility: 'PUBLIC', status: 'PUBLISHED' },
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      thumbnail: true,
+      level: true,
+      price: true,
+      promoPrice: true,
+      creator: { select: { name: true } },
+      _count: { select: { enrollments: true } },
+      modules: {
+        orderBy: { order: 'asc' },
+        select: {
+          id: true,
+          title: true,
+          order: true,
+          lessons: {
+            orderBy: { order: 'asc' },
+            select: {
+              id: true,
+              title: true,
+              type: true,
+            },
+          },
+        },
+      },
+    },
+  })
+
+  if (!course) return null
+
+  return {
+    ...course,
+    price: course.price != null ? Number(course.price) : null,
+    promoPrice: course.promoPrice != null ? Number(course.promoPrice) : null,
+  }
+}
+
+export type PublicCourseDetail = NonNullable<Awaited<ReturnType<typeof getCoursePublicDetail>>>
+
+/** Preview content — module 1 with full lesson content. No auth. */
+export async function getCoursePreviewContent(courseId: string) {
+  const course = await db.course.findUnique({
+    where: { id: courseId, visibility: 'PUBLIC', status: 'PUBLISHED' },
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      price: true,
+      promoPrice: true,
+      modules: {
+        orderBy: { order: 'asc' },
+        select: {
+          id: true,
+          title: true,
+          order: true,
+          lessons: {
+            orderBy: { order: 'asc' },
+            select: { id: true, title: true, type: true, content: true },
+          },
+        },
+      },
+    },
+  })
+
+  if (!course) return null
+
+  // Separate first module (preview) from rest
+  const firstModule = course.modules[0] ?? null
+  const allModules = course.modules.map((m) => ({ id: m.id, title: m.title, order: m.order }))
+
+  return {
+    id: course.id,
+    title: course.title,
+    description: course.description,
+    price: course.price != null ? Number(course.price) : null,
+    promoPrice: course.promoPrice != null ? Number(course.promoPrice) : null,
+    previewModule: firstModule,
+    allModules,
+    totalModules: course.modules.length,
+  }
+}
+
+export type CoursePreview = NonNullable<Awaited<ReturnType<typeof getCoursePreviewContent>>>
 
 export async function getCourseById(courseId: string): Promise<CourseDetail | null> {
   return db.course.findUnique({
@@ -153,6 +251,9 @@ export async function createCourse(
     description: formData.get('description'),
     thumbnail: formData.get('thumbnail'),
     level: formData.get('level'),
+    visibility: formData.get('visibility') || 'INTERNAL',
+    price: formData.get('price'),
+    promoPrice: formData.get('promoPrice'),
   }
 
   const parsed = CreateCourseSchema.safeParse(raw)
@@ -171,6 +272,9 @@ export async function createCourse(
       thumbnail: parsed.data.thumbnail || null,
       level: parsed.data.level as CourseLevel,
       status: CourseStatus.DRAFT,
+      visibility: parsed.data.visibility as any,
+      price: parsed.data.price,
+      promoPrice: parsed.data.promoPrice,
       creatorId: session.user.id,
     },
     select: { id: true },
@@ -192,6 +296,9 @@ export async function updateCourse(
     thumbnail: formData.get('thumbnail'),
     level: formData.get('level'),
     status: formData.get('status'),
+    visibility: formData.get('visibility') || 'INTERNAL',
+    price: formData.get('price'),
+    promoPrice: formData.get('promoPrice'),
   }
 
   const parsed = EditCourseSchema.safeParse(raw)
@@ -211,6 +318,9 @@ export async function updateCourse(
       thumbnail: parsed.data.thumbnail || null,
       level: parsed.data.level as CourseLevel,
       status: parsed.data.status as CourseStatus,
+      visibility: parsed.data.visibility as any,
+      price: parsed.data.price,
+      promoPrice: parsed.data.promoPrice,
     },
   })
 

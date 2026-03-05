@@ -19,4 +19,5 @@ export const roleLabels: Record<string, string> = {
   MENTOR: 'Mentor',
   LEADER: 'Leader',
   EMPLOYEE: 'Karyawan',
+  CUSTOMER: 'Customer',
 }
