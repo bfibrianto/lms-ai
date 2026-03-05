@@ -83,6 +83,15 @@ export async function loginAction(formData: FormData) {
             redirectTo: '/dashboard',
         })
     } catch (error) {
+        // signIn on success throws NEXT_REDIRECT — must re-throw it
+        // so Next.js framework can handle the redirect
+        if (
+            error instanceof Error &&
+            (error.message.includes('NEXT_REDIRECT') ||
+                error.message.includes('redirect'))
+        ) {
+            throw error
+        }
         if (error instanceof AuthError) {
             switch (error.type) {
                 case 'CredentialsSignin':
@@ -91,7 +100,8 @@ export async function loginAction(formData: FormData) {
                     return { error: 'Terjadi kesalahan saat login.' }
             }
         }
-        // NEXT_REDIRECT throws an error that must be re-thrown
-        throw error
+        // Unknown error — return instead of throw to avoid client-side crash
+        return { error: 'Terjadi kesalahan saat login.' }
     }
 }
+

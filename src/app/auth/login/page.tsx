@@ -26,19 +26,13 @@ export default function LoginPage() {
 
     const formData = new FormData(e.currentTarget)
 
-    try {
-      const result = await loginAction(formData)
-      // If loginAction returns (not throws), it means there was an error
-      if (result?.error) {
-        setError(result.error)
-      }
-    } catch {
-      // signIn redirects via throw — this is expected on success
-      // For any unexpected error:
-      setError('Terjadi kesalahan saat login.')
-    } finally {
-      setLoading(false)
+    const result = await loginAction(formData)
+    // loginAction only returns when there's an error
+    // On success, it redirects (never returns)
+    if (result?.error) {
+      setError(result.error)
     }
+    setLoading(false)
   }
 
   return (
