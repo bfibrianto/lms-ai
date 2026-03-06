@@ -26,6 +26,12 @@ export const backofficeNav: NavItem[] = [
     icon: Users,
     roles: ['SUPER_ADMIN', 'HR_ADMIN'],
   },
+  {
+    title: 'Karyawan',
+    href: '/backoffice/employees',
+    icon: Users,
+    roles: ['SUPER_ADMIN', 'HR_ADMIN'],
+  },
   { title: 'Kursus', href: '/backoffice/courses', icon: BookOpen },
   { title: 'Pelatihan', href: '/backoffice/trainings', icon: ClipboardList },
   { title: 'Learning Path', href: '/backoffice/learning-paths', icon: Route },
