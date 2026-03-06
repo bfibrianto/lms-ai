@@ -44,6 +44,7 @@ export const portalNav: NavItem[] = [
   { title: 'Kursus Saya', href: '/portal/my-courses', icon: BookOpen },
   { title: 'Pelatihan', href: '/portal/trainings', icon: ClipboardList },
   { title: 'Learning Path', href: '/portal/learning-paths', icon: Route },
+  { title: 'Pesanan Saya', href: '/portal/orders', icon: ClipboardList, roles: ['CUSTOMER'] },
   { title: 'Leaderboard', href: '/portal/leaderboard', icon: Trophy },
   { title: 'Sertifikat', href: '/portal/certificates', icon: Award },
 ]
