@@ -11,9 +11,13 @@ function getDashboardPath(role: string): string {
 }
 
 export async function middleware(request: NextRequest) {
+  // Use protocol to determine if we should look for __Secure- prefixed cookies
+  const isSecure = request.nextUrl.protocol === 'https:'
+
   const token = await getToken({
     req: request,
     secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
+    secureCookie: isSecure,
   })
   const isLoggedIn = !!token
   const { pathname } = request.nextUrl

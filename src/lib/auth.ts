@@ -7,6 +7,7 @@ import { db } from '@/lib/db'
 export const { handlers, auth, signIn, signOut } = NextAuth({
   secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
   trustHost: true,
+  useSecureCookies: process.env.NODE_ENV === 'production',
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma 7 type mismatch with @auth/prisma-adapter
   adapter: PrismaAdapter(db as any),
   session: { strategy: 'jwt' },
