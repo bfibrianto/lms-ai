@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { LogOut, Settings } from 'lucide-react'
+import { LogOut, Settings, ClipboardList } from 'lucide-react'
 import { roleLabels } from '@/lib/roles'
 
 const BACKOFFICE_ROLES = ['SUPER_ADMIN', 'HR_ADMIN', 'MENTOR', 'LEADER']
@@ -60,6 +60,18 @@ export function UserMenu({ user }: UserMenuProps) {
           </p>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        {user.role === 'CUSTOMER' && (
+          <>
+            <DropdownMenuItem
+              onClick={() => router.push('/portal/orders')}
+              className="cursor-pointer"
+            >
+              <ClipboardList className="mr-2 h-4 w-4" />
+              Pesanan Saya
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
         <DropdownMenuItem
           onClick={() => router.push(accountUrl)}
           className="cursor-pointer"
