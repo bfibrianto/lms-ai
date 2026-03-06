@@ -43,6 +43,7 @@ interface CourseCatalogProps {
   totalPages: number
   currentPage: number
   total: number
+  userRole?: string
 }
 
 export function CourseCatalog({
@@ -51,6 +52,7 @@ export function CourseCatalog({
   totalPages,
   currentPage,
   total,
+  userRole,
 }: CourseCatalogProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -85,10 +87,10 @@ export function CourseCatalog({
             onChange={(e) => {
               const val = e.target.value
               clearTimeout((window as unknown as Record<string, ReturnType<typeof setTimeout>>)._searchTimer)
-              ;(window as unknown as Record<string, ReturnType<typeof setTimeout>>)._searchTimer = setTimeout(
-                () => updateParam('search', val),
-                400
-              )
+                ; (window as unknown as Record<string, ReturnType<typeof setTimeout>>)._searchTimer = setTimeout(
+                  () => updateParam('search', val),
+                  400
+                )
             }}
           />
         </div>
@@ -187,6 +189,7 @@ export function CourseCatalog({
                       <EnrollButton
                         courseId={course.id}
                         isEnrolled={true}
+                        userRole={userRole}
                         className="shrink-0"
                       />
                     </>
@@ -194,6 +197,7 @@ export function CourseCatalog({
                     <EnrollButton
                       courseId={course.id}
                       isEnrolled={false}
+                      userRole={userRole}
                       className="w-full"
                     />
                   )}

@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { MarkdownRenderer } from '@/components/shared/markdown-renderer'
 
 function getLessonIcon(type: string) {
     switch (type) {
@@ -80,8 +81,8 @@ export default async function CoursePreviewPage({
                                         </h3>
                                     </div>
                                     {lesson.content ? (
-                                        <div className="prose prose-sm max-w-none rounded-lg border bg-card p-6">
-                                            <div className="whitespace-pre-wrap">{lesson.content}</div>
+                                        <div className="prose prose-sm max-w-none rounded-lg border bg-card p-6 dark:prose-invert">
+                                            <MarkdownRenderer content={lesson.content} />
                                         </div>
                                     ) : (
                                         <div className="rounded-lg border bg-muted/50 p-6 text-center text-muted-foreground">

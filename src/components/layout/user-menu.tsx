@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { LogOut, Settings } from 'lucide-react'
+import { LogOut, Settings, ClipboardList, BookOpen, Award } from 'lucide-react'
 import { roleLabels } from '@/lib/roles'
 
 const BACKOFFICE_ROLES = ['SUPER_ADMIN', 'HR_ADMIN', 'MENTOR', 'LEADER']
@@ -32,7 +32,8 @@ export function UserMenu({ user }: UserMenuProps) {
     .toUpperCase()
     .slice(0, 2)
 
-  const accountUrl = BACKOFFICE_ROLES.includes(user.role)
+  const isBackoffice = BACKOFFICE_ROLES.includes(user.role)
+  const accountUrl = isBackoffice
     ? '/backoffice/account'
     : '/portal/account'
 
@@ -60,6 +61,37 @@ export function UserMenu({ user }: UserMenuProps) {
           </p>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        {!isBackoffice && (
+          <>
+            <DropdownMenuItem
+              onClick={() => router.push('/portal/my-courses')}
+              className="cursor-pointer"
+            >
+              <BookOpen className="mr-2 h-4 w-4" />
+              Kursus Saya
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => router.push('/portal/certificates')}
+              className="cursor-pointer"
+            >
+              <Award className="mr-2 h-4 w-4" />
+              Sertifikat
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
+        {user.role === 'CUSTOMER' && (
+          <>
+            <DropdownMenuItem
+              onClick={() => router.push('/portal/orders')}
+              className="cursor-pointer"
+            >
+              <ClipboardList className="mr-2 h-4 w-4" />
+              Pesanan Saya
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
         <DropdownMenuItem
           onClick={() => router.push(accountUrl)}
           className="cursor-pointer"

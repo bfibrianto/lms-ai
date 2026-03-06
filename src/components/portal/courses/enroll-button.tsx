@@ -12,14 +12,20 @@ interface EnrollButtonProps {
   courseId: string
   isEnrolled: boolean
   className?: string
+  userRole?: string
 }
 
-export function EnrollButton({ courseId, isEnrolled, className }: EnrollButtonProps) {
+export function EnrollButton({ courseId, isEnrolled, className, userRole }: EnrollButtonProps) {
   const [enrolled, setEnrolled] = useState(isEnrolled)
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
 
   function handleEnroll() {
+    if (userRole === 'CUSTOMER') {
+      router.push(`/portal/checkout/course/${courseId}`)
+      return
+    }
+
     startTransition(async () => {
       const result = await enrollCourse(courseId)
       if (result.success) {
@@ -76,7 +82,7 @@ export function EnrollButton({ courseId, isEnrolled, className }: EnrollButtonPr
       ) : (
         <BookOpen className="mr-2 h-4 w-4" />
       )}
-      {isPending ? 'Mendaftarkan...' : 'Daftar Sekarang'}
+      {isPending ? 'Memproses...' : userRole === 'CUSTOMER' ? 'Beli Kursus' : 'Daftar Sekarang'}
     </Button>
   )
 }

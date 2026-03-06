@@ -36,6 +36,7 @@ export default async function PortalCoursesPage({ searchParams }: PageProps) {
         total={total}
         totalPages={totalPages}
         currentPage={currentPage}
+        userRole={session?.user?.role}
       />
     </div>
   )

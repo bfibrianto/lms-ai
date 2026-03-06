@@ -9,6 +9,17 @@ const nextConfig: NextConfig = {
         port: process.env.MINIO_PORT || '9000',
         pathname: `/${process.env.MINIO_BUCKET || 'lms-media'}/**`,
       },
+      {
+        protocol: 'https',
+        hostname: 'minio.tandeem.co.id',
+        pathname: '/**',
+      },
+      {
+        protocol: 'http',
+        hostname: '109.199.120.180',
+        port: '9004',
+        pathname: '/**',
+      }
     ],
   },
 };

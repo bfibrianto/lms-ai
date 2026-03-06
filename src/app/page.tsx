@@ -12,6 +12,7 @@ import { PriceDisplay } from '@/components/shared/price-display'
 import { LandingHero } from '@/components/landing/landing-hero'
 import { CourseCarousel } from '@/components/landing/course-carousel'
 import { LandingFeatures } from '@/components/landing/landing-features'
+import { LandingNavbar } from '@/components/landing/landing-navbar'
 import { LandingFooter } from '@/components/landing/landing-footer'
 
 export const metadata: Metadata = {
@@ -42,50 +43,7 @@ export default async function NewLandingPage() {
     return (
         <div className="flex min-h-screen flex-col">
             {/* Navbar */}
-            <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-lg">
-                <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-                    <Link href="/new-lp" className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600">
-                            <GraduationCap className="h-4 w-4 text-white" />
-                        </div>
-                        <span className="text-lg font-bold">
-                            Sitamoto <span className="text-blue-600">Academy</span>
-                        </span>
-                    </Link>
-
-                    <nav className="hidden items-center gap-6 text-sm md:flex">
-                        <Link
-                            href="#courses"
-                            className="text-muted-foreground transition-colors hover:text-foreground"
-                        >
-                            Kursus
-                        </Link>
-                        <Link
-                            href="#features"
-                            className="text-muted-foreground transition-colors hover:text-foreground"
-                        >
-                            Fitur
-                        </Link>
-                        <a
-                            href="https://sitamoto.ai"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-muted-foreground transition-colors hover:text-foreground"
-                        >
-                            Sitamoto.ai
-                        </a>
-                    </nav>
-
-                    <div className="flex items-center gap-3">
-                        <Button variant="ghost" size="sm" asChild>
-                            <Link href="/auth/login">Masuk</Link>
-                        </Button>
-                        <Button size="sm" asChild>
-                            <Link href="/auth/login">Daftar</Link>
-                        </Button>
-                    </div>
-                </div>
-            </header>
+            <LandingNavbar />
 
             {/* Hero */}
             <LandingHero />
