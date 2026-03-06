@@ -4,7 +4,7 @@ import { db } from '@/lib/db'
 import { employeeSchema, bulkEmployeeSchema } from '@/lib/validations/employee'
 import type { EmployeeInput, BulkEmployeeInput } from '@/lib/validations/employee'
 import bcrypt from 'bcryptjs'
-import { Role } from '@prisma/client'
+import { Role } from '@/generated/prisma/client'
 
 export async function createEmployee(data: EmployeeInput) {
     try {
