@@ -8,6 +8,7 @@ import {
   Route,
   GraduationCap,
   Trophy,
+  DollarSign,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -20,6 +21,12 @@ export interface NavItem {
 
 export const backofficeNav: NavItem[] = [
   { title: 'Dashboard', href: '/backoffice/dashboard', icon: LayoutDashboard },
+  {
+    title: 'Orders',
+    href: '/backoffice/orders',
+    icon: DollarSign,
+    roles: ['SUPER_ADMIN', 'HR_ADMIN'],
+  },
   {
     title: 'Pengguna',
     href: '/backoffice/users',
