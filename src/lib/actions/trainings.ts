@@ -363,11 +363,12 @@ export async function registerTraining(
     const existing = await db.trainingRegistration.findUnique({
       where: { userId_trainingId: { userId: user.id!, trainingId } },
     })
+
+    // Register or Re-register
     if (existing) {
       if (existing.status !== 'CANCELLED') {
         return { success: false, error: 'Sudah terdaftar' }
       }
-      // re-register
       await db.trainingRegistration.update({
         where: { id: existing.id },
         data: { status: 'REGISTERED' },
@@ -376,6 +377,30 @@ export async function registerTraining(
       await db.trainingRegistration.create({
         data: { userId: user.id!, trainingId },
       })
+    }
+
+    // Auto-enroll to linked courses
+    const linkedCourses = await db.trainingCourse.findMany({
+      where: { trainingId }
+    })
+
+    if (linkedCourses.length > 0) {
+      for (const link of linkedCourses) {
+        const expiresAt = new Date()
+        expiresAt.setDate(expiresAt.getDate() + link.accessDurationInDays)
+
+        const existingEnrollment = await db.enrollment.findUnique({
+          where: { userId_courseId: { userId: user.id!, courseId: link.courseId } }
+        })
+
+        if (!existingEnrollment || existingEnrollment.isTemporary) {
+          await db.enrollment.upsert({
+            where: { userId_courseId: { userId: user.id!, courseId: link.courseId } },
+            update: { isTemporary: true, expiresAt },
+            create: { userId: user.id!, courseId: link.courseId, isTemporary: true, expiresAt }
+          })
+        }
+      }
     }
 
     revalidatePath('/portal/trainings')
@@ -396,9 +421,112 @@ export async function cancelTrainingRegistration(
       data: { status: 'CANCELLED' },
     })
     revalidatePath('/portal/trainings')
-    revalidatePath('/portal/dashboard')
     return { success: true }
   } catch {
     return { success: false, error: 'Gagal membatalkan pendaftaran' }
   }
 }
+
+// ── Training Course Linking ───────────────────────────────────────────────────
+
+export async function getLinkedCourses(trainingId: string) {
+  try {
+    const linked = await db.trainingCourse.findMany({
+      where: { trainingId },
+      include: {
+        course: {
+          select: { id: true, title: true, level: true, status: true }
+        }
+      },
+      orderBy: { createdAt: 'asc' }
+    })
+    return { success: true, data: linked }
+  } catch (error: any) {
+    return { success: false, error: 'Gagal mengambil data course terkait' }
+  }
+}
+
+export async function linkCoursesToTraining(
+  trainingId: string,
+  courseIds: string[],
+  accessDurationInDays: number
+) {
+  try {
+    await requireWriteAccess()
+
+    // 1. Get current links
+    const existingLinks = await db.trainingCourse.findMany({
+      where: { trainingId }
+    })
+    const existingCourseIds = existingLinks.map(l => l.courseId)
+
+    // Detect changes
+    const toDelete = existingCourseIds.filter(id => !courseIds.includes(id))
+    const toAdd = courseIds.filter(id => !existingCourseIds.includes(id))
+    const toUpdate = existingCourseIds.filter(id => courseIds.includes(id))
+
+    // 2. Apply changes to TrainingCourse
+    if (toDelete.length > 0) {
+      await db.trainingCourse.deleteMany({
+        where: { trainingId, courseId: { in: toDelete } }
+      })
+    }
+    if (toAdd.length > 0) {
+      await db.trainingCourse.createMany({
+        data: toAdd.map(courseId => ({
+          trainingId,
+          courseId,
+          accessDurationInDays
+        }))
+      })
+    }
+    if (toUpdate.length > 0) {
+      await db.trainingCourse.updateMany({
+        where: { trainingId, courseId: { in: toUpdate } },
+        data: { accessDurationInDays }
+      })
+    }
+
+    // 3. Auto-Enrollment for active participants
+    const registrations = await db.trainingRegistration.findMany({
+      where: { trainingId, status: { in: ['REGISTERED', 'ATTENDED'] } }
+    })
+
+    if (registrations.length > 0 && courseIds.length > 0) {
+      const expiresAt = new Date()
+      expiresAt.setDate(expiresAt.getDate() + accessDurationInDays)
+
+      for (const reg of registrations) {
+        for (const courseId of courseIds) {
+          // Check if already enrolled
+          const existingEnrollment = await db.enrollment.findUnique({
+            where: { userId_courseId: { userId: reg.userId, courseId } }
+          })
+
+          // Only force temp expiration if they are not already permanently enrolled
+          if (!existingEnrollment || existingEnrollment.isTemporary) {
+            await db.enrollment.upsert({
+              where: { userId_courseId: { userId: reg.userId, courseId } },
+              update: {
+                isTemporary: true,
+                expiresAt
+              },
+              create: {
+                userId: reg.userId,
+                courseId,
+                isTemporary: true,
+                expiresAt
+              }
+            })
+          }
+        }
+      }
+    }
+
+    revalidatePath(`/backoffice/trainings/${trainingId}`)
+    return { success: true }
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Gagal menyimpan course terkait' }
+  }
+}
+

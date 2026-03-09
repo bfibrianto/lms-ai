@@ -50,6 +50,30 @@ async function autoEnroll(userId: string, itemType: string, itemId: string) {
                 data: { userId, trainingId: itemId, status: 'REGISTERED' },
             })
         }
+
+        // Auto-enroll to linked courses
+        const linkedCourses = await db.trainingCourse.findMany({
+            where: { trainingId: itemId },
+        })
+
+        if (linkedCourses.length > 0) {
+            for (const link of linkedCourses) {
+                const expiresAt = new Date()
+                expiresAt.setDate(expiresAt.getDate() + link.accessDurationInDays)
+
+                const existingEnrollment = await db.enrollment.findUnique({
+                    where: { userId_courseId: { userId, courseId: link.courseId } }
+                })
+
+                if (!existingEnrollment || existingEnrollment.isTemporary) {
+                    await db.enrollment.upsert({
+                        where: { userId_courseId: { userId, courseId: link.courseId } },
+                        update: { isTemporary: true, expiresAt },
+                        create: { userId, courseId: link.courseId, isTemporary: true, expiresAt }
+                    })
+                }
+            }
+        }
     } else if (itemType === 'LEARNING_PATH') {
         const exists = await db.pathEnrollment.findFirst({
             where: { userId, pathId: itemId },

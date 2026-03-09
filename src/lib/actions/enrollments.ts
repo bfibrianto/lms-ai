@@ -134,6 +134,8 @@ export async function getMyEnrollments(userId: string) {
       lastLessonId: true,
       enrolledAt: true,
       completedAt: true,
+      isTemporary: true,
+      expiresAt: true,
       course: {
         select: {
           id: true,

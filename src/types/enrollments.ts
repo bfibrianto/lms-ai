@@ -16,6 +16,8 @@ export interface MyCoursesItem {
   lastLessonId: string | null
   enrolledAt: Date
   completedAt: Date | null
+  isTemporary: boolean
+  expiresAt: Date | null
   course: {
     id: string
     title: string

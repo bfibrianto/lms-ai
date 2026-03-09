@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { BookOpen, CheckCircle2, Layers, PlayCircle } from 'lucide-react'
 import type { MyCoursesItem } from '@/types/enrollments'
-import { formatDistanceToNow } from 'date-fns'
+import { formatDistanceToNow, format } from 'date-fns'
 import { id as idLocale } from 'date-fns/locale'
 
 const levelLabels: Record<string, string> = {
@@ -77,6 +77,10 @@ export function MyCoursesList({ enrollments }: MyCoursesListProps) {
       <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
         {enrollments.map((enrollment) => {
           const { course } = enrollment
+          const isExpired = enrollment.isTemporary && enrollment.expiresAt
+            ? new Date() > new Date(enrollment.expiresAt)
+            : false
+
           const sc = enrollmentStatusConfig[enrollment.status] ?? {
             label: enrollment.status,
             variant: 'secondary' as const,
@@ -85,7 +89,7 @@ export function MyCoursesList({ enrollments }: MyCoursesListProps) {
           return (
             <Card
               key={enrollment.id}
-              className="group flex flex-col overflow-hidden py-0 transition-shadow hover:shadow-md"
+              className={`group flex flex-col overflow-hidden py-0 transition-shadow hover:shadow-md ${isExpired ? 'opacity-75 grayscale-[0.3]' : ''}`}
             >
               {/* Thumbnail */}
               <div className="relative flex h-36 items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
@@ -128,6 +132,16 @@ export function MyCoursesList({ enrollments }: MyCoursesListProps) {
                   {levelLabels[course.level] ?? course.level} · oleh{' '}
                   {course.creator.name}
                 </CardDescription>
+                {enrollment.isTemporary && enrollment.expiresAt && (
+                  <div className="mt-2">
+                    <Badge
+                      variant={isExpired ? "destructive" : "outline"}
+                      className={`text-[10px] uppercase font-normal ${!isExpired ? 'bg-amber-500/10 text-amber-600 border-amber-200' : ''}`}
+                    >
+                      ⏳ {isExpired ? 'Berakhir pada ' : 'Akses sampai '} {format(new Date(enrollment.expiresAt), 'd MMM yyyy', { locale: idLocale })}
+                    </Badge>
+                  </div>
+                )}
               </CardHeader>
 
               <CardContent className="flex-1 pb-3">
@@ -152,13 +166,26 @@ export function MyCoursesList({ enrollments }: MyCoursesListProps) {
               </CardContent>
 
               <CardFooter className="border-t pt-3 pb-4">
-                <Button asChild className="w-full" size="sm">
-                  <Link href={`/portal/my-courses/${course.id}`}>
-                    <PlayCircle className="mr-2 h-4 w-4" />
-                    {enrollment.status === 'COMPLETED'
-                      ? 'Tinjau Kursus'
-                      : 'Lanjutkan Belajar'}
-                  </Link>
+                <Button
+                  asChild={!isExpired}
+                  className="w-full"
+                  size="sm"
+                  disabled={isExpired}
+                  variant={isExpired ? "secondary" : "default"}
+                >
+                  {isExpired ? (
+                    <span className="flex items-center">
+                      <PlayCircle className="mr-2 h-4 w-4" />
+                      Akses Berakhir
+                    </span>
+                  ) : (
+                    <Link href={`/portal/my-courses/${course.id}`}>
+                      <PlayCircle className="mr-2 h-4 w-4" />
+                      {enrollment.status === 'COMPLETED'
+                        ? 'Tinjau Kursus'
+                        : 'Lanjutkan Belajar'}
+                    </Link>
+                  )}
                 </Button>
               </CardFooter>
             </Card>

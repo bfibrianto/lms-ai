@@ -21,6 +21,8 @@ import {
 } from 'lucide-react'
 import { RegistrantsTable } from '@/components/backoffice/trainings/registrants-table'
 import { DeleteTrainingDialog } from '@/components/backoffice/trainings/delete-training-dialog'
+import { LinkedCoursesTab } from '@/components/backoffice/trainings/linked-courses-tab'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   trainingTypeLabels,
   trainingStatusLabels,
@@ -100,116 +102,134 @@ export default async function TrainingDetailPage({ params }: PageProps) {
         )}
       </div>
 
-      {/* Details */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardContent className="flex items-center gap-3 py-4">
-            <CalendarDays className="h-5 w-5 text-primary" />
-            <div>
-              <p className="text-xs text-muted-foreground">Mulai</p>
-              <p className="text-sm font-medium">
-                {format(new Date(training.startDate), 'd MMM yyyy, HH:mm', {
-                  locale: idLocale,
-                })}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center gap-3 py-4">
-            <CalendarDays className="h-5 w-5 text-muted-foreground" />
-            <div>
-              <p className="text-xs text-muted-foreground">Selesai</p>
-              <p className="text-sm font-medium">
-                {format(new Date(training.endDate), 'd MMM yyyy, HH:mm', {
-                  locale: idLocale,
-                })}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center gap-3 py-4">
-            <Users className="h-5 w-5 text-primary" />
-            <div>
-              <p className="text-xs text-muted-foreground">Peserta</p>
-              <p className="text-sm font-medium">
-                {training._count.registrations}
-                {training.capacity ? ` / ${training.capacity}` : ' peserta'}
-                {isFull && (
-                  <span className="ml-1 text-xs text-destructive">(penuh)</span>
+      {/* Tab Navigation */}
+      <Tabs defaultValue="informasi" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="informasi">Informasi Training</TabsTrigger>
+          <TabsTrigger value="peserta">Peserta</TabsTrigger>
+          {canEdit && <TabsTrigger value="materi">Materi Pendukung</TabsTrigger>}
+        </TabsList>
+
+        <TabsContent value="informasi" className="space-y-6">
+          {/* Details */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardContent className="flex items-center gap-3 py-4">
+                <CalendarDays className="h-5 w-5 text-primary" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Mulai</p>
+                  <p className="text-sm font-medium">
+                    {format(new Date(training.startDate), 'd MMM yyyy, HH:mm', {
+                      locale: idLocale,
+                    })}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="flex items-center gap-3 py-4">
+                <CalendarDays className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Selesai</p>
+                  <p className="text-sm font-medium">
+                    {format(new Date(training.endDate), 'd MMM yyyy, HH:mm', {
+                      locale: idLocale,
+                    })}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="flex items-center gap-3 py-4">
+                <Users className="h-5 w-5 text-primary" />
+                <div>
+                  <p className="text-xs text-muted-foreground">Peserta</p>
+                  <p className="text-sm font-medium">
+                    {training._count.registrations}
+                    {training.capacity ? ` / ${training.capacity}` : ' peserta'}
+                    {isFull && (
+                      <span className="ml-1 text-xs text-destructive">(penuh)</span>
+                    )}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="flex items-center gap-3 py-4">
+                {training.location ? (
+                  <>
+                    <MapPin className="h-5 w-5 text-primary" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Lokasi</p>
+                      <p className="text-sm font-medium">{training.location}</p>
+                    </div>
+                  </>
+                ) : training.onlineUrl ? (
+                  <>
+                    <Monitor className="h-5 w-5 text-primary" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Online</p>
+                      <a
+                        href={training.onlineUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+                      >
+                        <Link2 className="h-3.5 w-3.5" />
+                        Buka Link
+                      </a>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <MapPin className="h-5 w-5 text-muted-foreground" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Lokasi</p>
+                      <p className="text-sm text-muted-foreground">Belum diset</p>
+                    </div>
+                  </>
                 )}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center gap-3 py-4">
-            {training.location ? (
-              <>
-                <MapPin className="h-5 w-5 text-primary" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Lokasi</p>
-                  <p className="text-sm font-medium">{training.location}</p>
-                </div>
-              </>
-            ) : training.onlineUrl ? (
-              <>
-                <Monitor className="h-5 w-5 text-primary" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Online</p>
-                  <a
-                    href={training.onlineUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-sm font-medium text-primary hover:underline"
-                  >
-                    <Link2 className="h-3.5 w-3.5" />
-                    Buka Link
-                  </a>
-                </div>
-              </>
-            ) : (
-              <>
-                <MapPin className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Lokasi</p>
-                  <p className="text-sm text-muted-foreground">Belum diset</p>
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+              </CardContent>
+            </Card>
+          </div>
 
-      {/* Description */}
-      {training.description && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Deskripsi</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="whitespace-pre-wrap text-sm text-muted-foreground">
-              {training.description}
-            </p>
-          </CardContent>
-        </Card>
-      )}
+          {/* Description */}
+          {training.description && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm">Deskripsi</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="whitespace-pre-wrap text-sm text-muted-foreground">
+                  {training.description}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
 
-      {/* Registrants */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">
-            Daftar Peserta ({training._count.registrations})
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0 pb-2">
-          <RegistrantsTable
-            registrations={training.registrations}
-            canEdit={canEdit}
-          />
-        </CardContent>
-      </Card>
+        <TabsContent value="peserta" className="space-y-6 mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">
+                Daftar Peserta ({training._count.registrations})
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0 pb-2">
+              <RegistrantsTable
+                registrations={training.registrations}
+                canEdit={canEdit}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {canEdit && (
+          <TabsContent value="materi" className="space-y-6 mt-4">
+            <LinkedCoursesTab trainingId={id} />
+          </TabsContent>
+        )}
+      </Tabs>
     </div>
   )
 }
