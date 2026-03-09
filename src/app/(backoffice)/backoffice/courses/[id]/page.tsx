@@ -4,11 +4,13 @@ import { ChevronLeft, Pencil } from 'lucide-react'
 import { auth } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { getCourseById } from '@/lib/actions/courses'
 import { getQuizzesByCourse, getQuizDetail } from '@/lib/actions/quizzes'
 import { CourseBuilder } from '@/components/backoffice/courses/course-builder'
 import { QuizBuilder } from '@/components/backoffice/quizzes/quiz-builder'
 import { MarkdownRenderer } from '@/components/shared/markdown-renderer'
+import { CourseParticipantsTab } from '@/components/backoffice/courses/course-participants-tab'
 import type { CourseStatus, CourseLevel } from '@/types/courses'
 
 interface PageProps {
@@ -91,17 +93,30 @@ export default async function CourseBuilderPage({ params }: PageProps) {
         )}
       </div>
 
-      {/* Unified Course Builder (Modules + Quizzes ordered) */}
-      <div>
-        <h2 className="mb-3 text-base font-semibold">Konten Kursus</h2>
-        <CourseBuilder initialData={course} quizzes={quizList} canEdit={canEdit} />
-      </div>
+      <Tabs defaultValue="materi" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="materi">Materi Kursus</TabsTrigger>
+          <TabsTrigger value="peserta">Peserta & Progres</TabsTrigger>
+        </TabsList>
 
-      {/* Quiz Editor — for editing quiz content & questions */}
-      <div>
-        <h2 className="mb-3 text-base font-semibold">Quiz & Assessment — Editor</h2>
-        <QuizBuilder courseId={id} quizzes={quizzes} canEdit={canEdit} />
-      </div>
+        <TabsContent value="materi" className="space-y-6">
+          {/* Unified Course Builder (Modules + Quizzes ordered) */}
+          <div>
+            <h2 className="mb-3 text-base font-semibold">Konten Kursus</h2>
+            <CourseBuilder initialData={course as any} quizzes={quizList} canEdit={canEdit} />
+          </div>
+
+          {/* Quiz Editor — for editing quiz content & questions */}
+          <div>
+            <h2 className="mb-3 text-base font-semibold">Quiz & Assessment — Editor</h2>
+            <QuizBuilder courseId={id} quizzes={quizzes} canEdit={canEdit} />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="peserta" className="mt-4">
+          <CourseParticipantsTab courseId={course!.id} />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

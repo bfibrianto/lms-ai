@@ -342,3 +342,118 @@ export async function deleteCourse(courseId: string): Promise<ActionResult<void>
   revalidatePath('/backoffice/courses')
   return { success: true, data: undefined }
 }
+
+// ---------------------------------------------------------------------------
+// Participant Tracking (TASK-018)
+// ---------------------------------------------------------------------------
+
+import type { ParticipantListItem, ParticipantDetail } from '@/types/courses'
+
+export async function getCourseParticipants(courseId: string): Promise<ActionResult<{ participants: ParticipantListItem[]; total: number }>> {
+  try {
+    await requireWriteAccess()
+
+    const [enrollments, totalLessons] = await Promise.all([
+      db.enrollment.findMany({
+        where: { courseId },
+        include: {
+          user: { select: { id: true, name: true, email: true, role: true } },
+          _count: { select: { completions: true } }
+        },
+        orderBy: { enrolledAt: 'desc' }
+      }),
+      db.lesson.count({
+        where: { module: { courseId } }
+      })
+    ])
+
+    const participants: ParticipantListItem[] = enrollments.map(en => {
+      const completed = en._count.completions
+      const progressPercentage = totalLessons > 0 ? Math.round((completed / totalLessons) * 100) : 0
+
+      return {
+        id: en.id,
+        user: {
+          id: en.user.id,
+          name: en.user.name,
+          email: en.user.email,
+          role: en.user.role
+        },
+        progressPercentage,
+        completedLessons: completed,
+        totalLessons,
+        enrolledAt: en.enrolledAt
+      }
+    })
+
+    return { success: true, data: { participants, total: participants.length } }
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Gagal mengambil data peserta' }
+  }
+}
+
+export async function getParticipantDetail(courseId: string, userId: string): Promise<ActionResult<ParticipantDetail>> {
+  try {
+    await requireWriteAccess()
+
+    const user = await db.user.findUnique({ where: { id: userId }, select: { name: true, email: true } })
+    if (!user) throw new Error('User tidak ditemukan')
+
+    const enroll = await db.enrollment.findUnique({
+      where: { userId_courseId: { userId, courseId } },
+      include: { _count: { select: { completions: true } } }
+    })
+
+    // If not enrolled at all
+    if (!enroll) {
+      return {
+        success: true,
+        data: {
+          courseId,
+          user: { name: user.name, email: user.email },
+          progressPercentage: 0,
+          quizzes: []
+        }
+      }
+    }
+
+    const totalLessons = await db.lesson.count({ where: { module: { courseId } } })
+    const progressPercentage = (totalLessons > 0) ? Math.round((enroll._count.completions / totalLessons) * 100) : 0
+
+    // Get quizzes for this course
+    const quizzes = await db.quiz.findMany({
+      where: { courseId },
+      select: { id: true, title: true, passingScore: true, order: true }
+    })
+
+    const quizDetails = await Promise.all(quizzes.map(async (quiz) => {
+      const attempts = await db.quizAttempt.findMany({
+        where: { quizId: quiz.id, enrollmentId: enroll.id },
+        orderBy: { score: 'desc' }
+      })
+
+      const bestScore = attempts.length > 0 ? (attempts[0].score || 0) : 0
+      const passed = bestScore >= quiz.passingScore
+
+      return {
+        quizId: quiz.id,
+        title: quiz.title,
+        score: bestScore,
+        attempts: attempts.length,
+        passed,
+      }
+    }))
+
+    return {
+      success: true,
+      data: {
+        courseId,
+        user: { name: user.name, email: user.email },
+        progressPercentage,
+        quizzes: quizDetails
+      }
+    }
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Gagal merincikan detail peserta' }
+  }
+}
