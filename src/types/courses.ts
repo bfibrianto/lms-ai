@@ -74,3 +74,27 @@ export type CourseItem = {
   moduleData?: ModuleWithLessons
   quizData?: QuizSummary
 }
+
+// ─── Participant Tracking ─────────────────────────────────
+
+export type ParticipantListItem = {
+  id: string
+  user: { id: string; name: string; email: string; role: string }
+  progressPercentage: number
+  completedLessons: number
+  totalLessons: number
+  enrolledAt: Date
+}
+
+export type ParticipantDetail = {
+  courseId: string
+  user: { name: string; email: string }
+  progressPercentage: number
+  quizzes: {
+    quizId: string
+    title: string
+    score: number
+    attempts: number
+    passed: boolean
+  }[]
+}
