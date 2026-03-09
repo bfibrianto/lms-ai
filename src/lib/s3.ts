@@ -8,7 +8,7 @@ const globalForS3 = globalThis as unknown as {
 
 const protocol = process.env.MINIO_USE_SSL === 'true' ? 'https' : 'http';
 const minioEndpoint = process.env.MINIO_ENDPOINT || 'localhost';
-const minioPort = process.env.MINIO_PORT ? `:${process.env.MINIO_PORT}` : ':9000';
+const minioPort = process.env.MINIO_PORT ? `:${process.env.MINIO_PORT}` : (minioEndpoint === 'localhost' ? ':9000' : '');
 const fullEndpoint = process.env.S3_ENDPOINT || `${protocol}://${minioEndpoint}${minioPort}`;
 
 export const s3 =
