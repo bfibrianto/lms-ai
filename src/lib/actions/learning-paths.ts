@@ -161,6 +161,13 @@ export async function deleteLearningPath(id: string) {
     const session = await auth()
     if (!session?.user) throw new Error('Unauthorized')
 
+    const activeAssignment = await db.assignment.findFirst({
+        where: { itemId: id, type: 'LEARNING_PATH' }
+    })
+    if (activeAssignment) {
+        throw new Error('Item ini sedang ditugaskan secara Mandatory. Hapus penugasan terlebih dahulu atau pilih Non-aktifkan (Draft).')
+    }
+
     const pathContent = await db.learningPath.findUnique({ where: { id } })
     if (!pathContent) throw new Error('Tidak ditemukan')
 

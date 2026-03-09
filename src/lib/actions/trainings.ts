@@ -313,6 +313,13 @@ export async function deleteTraining(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     await requireWriteAccess()
+
+    const activeAssignment = await db.assignment.findFirst({
+      where: { itemId: id, type: 'TRAINING' }
+    })
+    if (activeAssignment) {
+      return { success: false, error: 'Item ini sedang ditugaskan secara Mandatory. Hapus penugasan terlebih dahulu atau pilih Non-aktifkan (Draft).' }
+    }
     await db.training.delete({ where: { id } })
     revalidatePath('/backoffice/trainings')
     return { success: true }

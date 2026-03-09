@@ -136,6 +136,8 @@ export async function getMyEnrollments(userId: string) {
       completedAt: true,
       isTemporary: true,
       expiresAt: true,
+      isMandatory: true,
+      dueDate: true,
       course: {
         select: {
           id: true,

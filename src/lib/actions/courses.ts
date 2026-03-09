@@ -332,6 +332,13 @@ export async function updateCourse(
 export async function deleteCourse(courseId: string): Promise<ActionResult<void>> {
   await requireWriteAccess()
 
+  const activeAssignment = await db.assignment.findFirst({
+    where: { itemId: courseId, type: 'COURSE' }
+  })
+  if (activeAssignment) {
+    return { success: false, error: 'Item ini sedang ditugaskan secara Mandatory. Hapus penugasan terlebih dahulu atau pilih Non-aktifkan (Draft).' }
+  }
+
   const course = await db.course.findUnique({
     where: { id: courseId },
     select: { id: true },
