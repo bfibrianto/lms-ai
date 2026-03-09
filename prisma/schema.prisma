@@ -68,6 +68,8 @@ model User {
   points                Int                    @default(0)
   pointHistories        PointHistory[]
   orders                Order[]
+  assignmentsGiven      Assignment[]           @relation("AssignedBy")
+  assignmentTargets     AssignmentTarget[]     @relation("AssignedTo")
 
   @@map("users")
 }
@@ -161,6 +163,9 @@ model Enrollment {
   completedAt  DateTime?
   isTemporary  Boolean            @default(false)
   expiresAt    DateTime?
+  isMandatory  Boolean            @default(false)
+  startDate    DateTime?
+  dueDate      DateTime?
   updatedAt    DateTime           @updatedAt
   completions  LessonCompletion[]
   quizAttempts QuizAttempt[]
@@ -223,6 +228,9 @@ model TrainingRegistration {
   training     Training           @relation(fields: [trainingId], references: [id], onDelete: Cascade)
   status       RegistrationStatus @default(REGISTERED)
   registeredAt DateTime           @default(now())
+  isMandatory  Boolean            @default(false)
+  startDate    DateTime?
+  dueDate      DateTime?
   updatedAt    DateTime           @updatedAt
 
   @@unique([userId, trainingId])
@@ -414,6 +422,9 @@ model PathEnrollment {
   path        LearningPath @relation(fields: [pathId], references: [id], onDelete: Cascade)
   enrolledAt  DateTime     @default(now())
   completedAt DateTime?
+  isMandatory Boolean      @default(false)
+  startDate   DateTime?
+  dueDate     DateTime?
   updatedAt   DateTime     @updatedAt
 
   @@unique([userId, pathId])
@@ -518,4 +529,50 @@ model Order {
   updatedAt     DateTime      @updatedAt
 
   @@map("orders")
+}
+
+// ─── Mandatory Assignments ────────────────────────────────────────
+
+enum AssignmentType {
+  COURSE
+  TRAINING
+  LEARNING_PATH
+}
+
+enum AssignmentStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  OVERDUE
+}
+
+model Assignment {
+  id              String           @id @default(cuid())
+  type            AssignmentType
+  itemId          String
+  title           String
+  assignedById    String
+  assignedBy      User             @relation("AssignedBy", fields: [assignedById], references: [id])
+  startDate       DateTime         @default(now())
+  dueDate         DateTime
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  assignees       AssignmentTarget[]
+
+  @@map("assignments")
+}
+
+model AssignmentTarget {
+  id              String           @id @default(cuid())
+  assignmentId    String
+  assignment      Assignment       @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User             @relation("AssignedTo", fields: [userId], references: [id], onDelete: Cascade)
+  status          AssignmentStatus @default(PENDING)
+  progress        Int              @default(0)
+  completedAt     DateTime?
+
+  @@unique([assignmentId, userId])
+  @@map("assignment_targets")
 }

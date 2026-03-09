@@ -18,6 +18,8 @@ export interface MyCoursesItem {
   completedAt: Date | null
   isTemporary: boolean
   expiresAt: Date | null
+  isMandatory: boolean
+  dueDate: Date | null
   course: {
     id: string
     title: string

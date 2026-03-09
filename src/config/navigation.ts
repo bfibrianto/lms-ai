@@ -9,6 +9,7 @@ import {
   GraduationCap,
   Trophy,
   DollarSign,
+  Target,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -42,6 +43,12 @@ export const backofficeNav: NavItem[] = [
   { title: 'Kursus', href: '/backoffice/courses', icon: BookOpen },
   { title: 'Pelatihan', href: '/backoffice/trainings', icon: ClipboardList },
   { title: 'Learning Path', href: '/backoffice/learning-paths', icon: Route },
+  {
+    title: 'Penugasan Wajib',
+    href: '/backoffice/assignments',
+    icon: Target,
+    roles: ['SUPER_ADMIN', 'HR_ADMIN'],
+  },
   { title: 'Sertifikat', href: '/backoffice/certificates', icon: Award },
   {
     title: 'Pengaturan',
@@ -56,5 +63,6 @@ export const portalNav: NavItem[] = [
   { title: 'Katalog Kursus', href: '/portal/courses', icon: GraduationCap },
   { title: 'Pelatihan', href: '/portal/trainings', icon: ClipboardList },
   { title: 'Learning Path', href: '/portal/learning-paths', icon: Route },
+  { title: 'Tugas Wajib', href: '/portal/assignments', icon: Target },
   { title: 'Leaderboard', href: '/portal/leaderboard', icon: Trophy },
 ]

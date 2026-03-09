@@ -121,9 +121,14 @@ export function MyCoursesList({ enrollments }: MyCoursesListProps) {
 
               <CardHeader className="pb-2 pt-4">
                 <div className="flex items-start justify-between gap-2">
-                  <CardTitle className="line-clamp-2 text-base leading-snug">
-                    {course.title}
-                  </CardTitle>
+                  <div className="flex flex-col gap-1.5">
+                    {enrollment.isMandatory && (
+                      <Badge variant="destructive" className="w-fit text-[10px] px-1.5 py-0 uppercase leading-relaxed tracking-wider">Wajib</Badge>
+                    )}
+                    <CardTitle className="line-clamp-2 text-base leading-snug">
+                      {course.title}
+                    </CardTitle>
+                  </div>
                   <Badge variant={sc.variant} className="shrink-0 text-xs">
                     {sc.label}
                   </Badge>
@@ -133,13 +138,13 @@ export function MyCoursesList({ enrollments }: MyCoursesListProps) {
                   {course.creator.name}
                 </CardDescription>
                 {enrollment.isTemporary && enrollment.expiresAt && (
-                  <div className="mt-2">
-                    <Badge
-                      variant={isExpired ? "destructive" : "outline"}
-                      className={`text-[10px] uppercase font-normal ${!isExpired ? 'bg-amber-500/10 text-amber-600 border-amber-200' : ''}`}
-                    >
-                      ⏳ {isExpired ? 'Berakhir pada ' : 'Akses sampai '} {format(new Date(enrollment.expiresAt), 'd MMM yyyy', { locale: idLocale })}
-                    </Badge>
+                  <div className="mt-2 text-[10px] uppercase font-normal text-amber-600 bg-amber-50 rounded-sm px-1.5 py-0.5 border border-amber-200">
+                    ⏳ {isExpired ? 'Berakhir pada ' : 'Akses sampai '} {format(new Date(enrollment.expiresAt), 'd MMM yyyy', { locale: idLocale })}
+                  </div>
+                )}
+                {enrollment.isMandatory && enrollment.dueDate && (
+                  <div className="mt-2 text-[11px] font-medium flex items-center gap-1 text-destructive bg-destructive/10 rounded-sm px-1.5 py-0.5 w-fit border border-destructive/20">
+                    <span className="opacity-80">Target Selesai:</span> {format(new Date(enrollment.dueDate), 'd MMM yyyy', { locale: idLocale })}
                   </div>
                 )}
               </CardHeader>
