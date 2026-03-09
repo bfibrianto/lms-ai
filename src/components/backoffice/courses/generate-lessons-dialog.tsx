@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { toast } from 'sonner'
-import { Sparkles, Loader2, Trash2, Check } from 'lucide-react'
+import { Sparkles, Loader2, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
     Dialog,
@@ -58,15 +59,18 @@ function nextId() {
     return `gen-lesson-${++counter}`
 }
 
+type DialogStep = 'prompt' | 'result'
+
 export function GenerateLessonsDialog({
     moduleId,
     moduleTitle,
 }: GenerateLessonsDialogProps) {
     const [open, setOpen] = useState(false)
+    const [step, setStep] = useState<DialogStep>('prompt')
+    const [guidelines, setGuidelines] = useState('')
     const [isGenerating, setIsGenerating] = useState(false)
     const [isCreating, setIsCreating] = useState(false)
     const [lessons, setLessons] = useState<LessonItem[]>([])
-    const [hasGenerated, setHasGenerated] = useState(false)
     const [generateContent, setGenerateContent] = useState(false)
     const [contentProgress, setContentProgress] = useState<{
         current: number
@@ -74,32 +78,25 @@ export function GenerateLessonsDialog({
         currentTitle: string
     } | null>(null)
 
-    // Auto-generate when dialog opens
-    useEffect(() => {
-        if (open && !hasGenerated) {
-            handleGenerate()
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open])
-
     function reset() {
+        setStep('prompt')
+        setGuidelines('')
         setLessons([])
         setIsGenerating(false)
         setIsCreating(false)
-        setHasGenerated(false)
         setGenerateContent(false)
         setContentProgress(null)
     }
 
     async function handleGenerate() {
         setIsGenerating(true)
-        setHasGenerated(true)
         try {
-            const res = await generateLessonListAction(moduleId)
+            const res = await generateLessonListAction(moduleId, guidelines || undefined)
             if (res.success && res.data) {
                 setLessons(
                     res.data.map((l) => ({ id: nextId(), title: l.title, type: l.type }))
                 )
+                setStep('result')
             } else {
                 toast.error(res.error || 'Gagal generate pelajaran.')
             }
@@ -108,6 +105,11 @@ export function GenerateLessonsDialog({
         } finally {
             setIsGenerating(false)
         }
+    }
+
+    function handleRegenerate() {
+        setStep('prompt')
+        setLessons([])
     }
 
     function handleEditTitle(id: string, value: string) {
@@ -135,7 +137,6 @@ export function GenerateLessonsDialog({
 
         setIsCreating(true)
         try {
-            // Step 1: Create all lessons
             const result = await bulkCreateLessons(
                 moduleId,
                 validLessons.map((l) => ({ title: l.title, type: l.type }))
@@ -149,7 +150,6 @@ export function GenerateLessonsDialog({
             const createdIds = result.data.ids
             toast.success(`${validLessons.length} pelajaran berhasil dibuat.`)
 
-            // Step 2: Generate content if checkbox is checked
             if (generateContent) {
                 const textLessons = validLessons
                     .map((l, idx) => ({ ...l, dbId: createdIds[idx] }))
@@ -195,7 +195,7 @@ export function GenerateLessonsDialog({
         <Dialog
             open={open}
             onOpenChange={(o) => {
-                if (isProcessing) return // Prevent close during processing
+                if (isProcessing) return
                 setOpen(o)
                 if (!o) reset()
             }}
@@ -235,14 +235,41 @@ export function GenerateLessonsDialog({
                     </div>
                 )}
 
-                {isGenerating ? (
+                {/* STEP 1: Prompt input */}
+                {step === 'prompt' && !isGenerating && (
+                    <div className="space-y-3 py-2">
+                        <div className="space-y-2">
+                            <label htmlFor="gen-guidelines" className="text-sm font-medium">
+                                Arahan tambahan{' '}
+                                <span className="text-muted-foreground font-normal">(opsional)</span>
+                            </label>
+                            <Textarea
+                                id="gen-guidelines"
+                                placeholder="Contoh: Fokuskan pada aspek praktis, buat 8 pelajaran, sertakan studi kasus, dll."
+                                value={guidelines}
+                                onChange={(e) => setGuidelines(e.target.value)}
+                                className="min-h-[80px] text-sm"
+                                rows={3}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                Berikan instruksi khusus untuk AI, atau kosongkan untuk generate otomatis berdasarkan judul modul.
+                            </p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Loading state */}
+                {isGenerating && (
                     <div className="flex flex-col items-center justify-center gap-3 py-8">
                         <Loader2 className="h-8 w-8 animate-spin text-primary" />
                         <p className="text-sm text-muted-foreground">
                             AI sedang membuat daftar pelajaran...
                         </p>
                     </div>
-                ) : !contentProgress && lessons.length > 0 ? (
+                )}
+
+                {/* STEP 2: Generated results */}
+                {step === 'result' && !isGenerating && !contentProgress && lessons.length > 0 && (
                     <>
                         <ScrollArea className="max-h-[300px] pr-2">
                             <div className="space-y-2 py-2">
@@ -320,35 +347,50 @@ export function GenerateLessonsDialog({
                             </label>
                         </div>
                     </>
-                ) : !contentProgress ? (
+                )}
+
+                {/* Empty state for result step */}
+                {step === 'result' && !isGenerating && !contentProgress && lessons.length === 0 && (
                     <p className="py-8 text-center text-sm text-muted-foreground">
                         Tidak ada pelajaran yang dihasilkan. Coba lagi.
                     </p>
-                ) : null}
+                )}
 
                 {!contentProgress && (
                     <DialogFooter className="gap-2 sm:gap-0">
-                        {!isGenerating && (
+                        {step === 'prompt' && !isGenerating && (
                             <Button
                                 type="button"
-                                variant="outline"
                                 onClick={handleGenerate}
-                                disabled={isCreating}
+                                className="w-full sm:w-auto"
                             >
                                 <Sparkles className="h-3.5 w-3.5 mr-1.5" />
-                                Generate Ulang
+                                Generate Pelajaran
                             </Button>
                         )}
-                        <Button
-                            type="button"
-                            onClick={handleCreate}
-                            disabled={isCreating || isGenerating || lessons.length === 0}
-                        >
-                            {isCreating && (
-                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            )}
-                            Buat {lessons.length} Pelajaran
-                        </Button>
+                        {step === 'result' && !isGenerating && (
+                            <>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={handleRegenerate}
+                                    disabled={isCreating}
+                                >
+                                    <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+                                    Generate Ulang
+                                </Button>
+                                <Button
+                                    type="button"
+                                    onClick={handleCreate}
+                                    disabled={isCreating || lessons.length === 0}
+                                >
+                                    {isCreating && (
+                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    )}
+                                    Buat {lessons.length} Pelajaran
+                                </Button>
+                            </>
+                        )}
                     </DialogFooter>
                 )}
             </DialogContent>

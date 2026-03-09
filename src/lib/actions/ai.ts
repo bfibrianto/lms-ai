@@ -56,7 +56,7 @@ export async function generateModuleListAction(courseId: string, adminGuidelines
 /**
  * Generates a list of lesson titles based on module and course context.
  */
-export async function generateLessonListAction(moduleId: string) {
+export async function generateLessonListAction(moduleId: string, guidelines?: string) {
     try {
         const session = await auth();
         if (!session?.user || session.user.role === 'EMPLOYEE') {
@@ -72,7 +72,7 @@ export async function generateLessonListAction(moduleId: string) {
         });
         if (!module) return { success: false, error: 'Modul tidak ditemukan.' };
 
-        const lessons = await generateLessonList(module.title, module.course.title);
+        const lessons = await generateLessonList(module.title, module.course.title, guidelines);
         return { success: true, data: lessons };
     } catch (error: any) {
         console.error('generateLessonListAction error:', error);

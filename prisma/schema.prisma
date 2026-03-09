@@ -485,6 +485,18 @@ model Setting {
   @@map("settings")
 }
 
+model AiProvider {
+  id        String   @id @default(cuid())
+  provider  String   @unique   // 'GEMINI' | 'OPENAI' | 'ANTHROPIC' | 'DEEPSEEK'
+  apiKey    String   @db.Text  // Encrypted AES-256-GCM
+  model     String
+  isActive  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("ai_providers")
+}
+
 // ─── Gamification ────────────────────────────────────────
 
 model PointHistory {

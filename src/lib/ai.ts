@@ -1,29 +1,80 @@
-import { genkit, z } from 'genkit';
+import { genkit, z, Genkit } from 'genkit';
 import { googleAI, gemini } from '@genkit-ai/googleai';
+import { openAI } from 'genkitx-openai';
+import { anthropic } from 'genkitx-anthropic';
 import { db } from '@/lib/db';
+import { decrypt } from '@/lib/encryption';
+
+interface AiClientData {
+    ai: Genkit;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Genkit accepts ModelReference | string
+    model: any;
+}
 
 /**
- * Retrieves the Genkit instance initialized with the Google AI plugin and 
- * API key from settings or env.
+ * Retrieves the Genkit instance initialized with the active provider plugin and API key.
+ * Now queries the AiProvider table instead of settings.
  */
-export async function getGenkitClient() {
-    // First try from DB settings
+export async function getAiClient(): Promise<AiClientData> {
+    // 1. Get the active provider
+    const activeProvider = await db.aiProvider.findFirst({
+        where: { isActive: true }
+    });
+
+    if (activeProvider) {
+        const apiKey = decrypt(activeProvider.apiKey);
+        const modelId = activeProvider.model;
+
+        let plugin;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let resolvedModel: any;
+
+        switch (activeProvider.provider) {
+            case 'GEMINI':
+                plugin = googleAI({ apiKey });
+                resolvedModel = gemini(modelId); // ModelReference for native JSON mode
+                break;
+            case 'OPENAI':
+                plugin = openAI({ apiKey });
+                resolvedModel = `openai/${modelId}`;
+                break;
+            case 'ANTHROPIC':
+                plugin = anthropic({ apiKey });
+                resolvedModel = `anthropic/${modelId}`;
+                break;
+            case 'DEEPSEEK':
+                // DeepSeek is OpenAI compatible
+                plugin = openAI({
+                    apiKey,
+                    baseURL: 'https://api.deepseek.com/v1'
+                });
+                resolvedModel = `openai/${modelId}`;
+                break;
+            default:
+                throw new Error(`Unsupported AI provider: ${activeProvider.provider}`);
+        }
+
+        const ai = genkit({ plugins: [plugin] });
+        return { ai, model: resolvedModel };
+    }
+
+    // 2. Fallback to Setting (Backward Compatibility)
     const apiKeySetting = await db.setting.findUnique({
         where: { key: 'GEMINI_API_KEY' },
     });
 
-    const apiKey = apiKeySetting?.value || process.env.GEMINI_API_KEY;
+    const fallbackApiKey = apiKeySetting?.value || process.env.GEMINI_API_KEY;
 
-    if (!apiKey) {
-        throw new Error('Gemini API Key is not configured in Settings or Environment Variables.');
+    if (!fallbackApiKey) {
+        throw new Error('AI provider belum dikonfigurasi. Silakan atur di Pengaturan > Integrasi AI.');
     }
 
-    // Initialize Genkit
+    // Default fallback is Gemini — use gemini() for proper ModelReference
     const ai = genkit({
-        plugins: [googleAI({ apiKey })],
+        plugins: [googleAI({ apiKey: fallbackApiKey })],
     });
 
-    return ai;
+    return { ai, model: gemini('gemini-2.5-flash') };
 }
 
 /**
@@ -39,7 +90,7 @@ export async function getPromptSetting(key: string, defaultValue: string): Promi
 // ─── AI Helper Functions ──────────────────────────────────────────────────
 
 export async function generateContentCompletion(prompt: string, context?: string) {
-    const ai = await getGenkitClient();
+    const { ai, model } = await getAiClient();
 
     const systemPrompt = await getPromptSetting(
         'PROMPT_CONTENT_GENERATION',
@@ -53,7 +104,7 @@ export async function generateContentCompletion(prompt: string, context?: string
     fullPrompt += `User Request: ${prompt}`;
 
     const response = await ai.generate({
-        model: gemini('gemini-2.5-flash'),
+        model,
         prompt: fullPrompt,
         config: {
             temperature: 0.7,
@@ -64,7 +115,7 @@ export async function generateContentCompletion(prompt: string, context?: string
 }
 
 export async function generateCourseDescription(title: string, additionalContext?: string): Promise<string> {
-    const ai = await getGenkitClient();
+    const { ai, model } = await getAiClient();
     const systemPrompt = await getPromptSetting(
         'PROMPT_COURSE_DESCRIPTION',
         `You are an LMS content assistant. Generate a concise, engaging course description 
@@ -80,13 +131,12 @@ and MUST NOT exceed 1000 characters total.`
     }
 
     const response = await ai.generate({
-        model: gemini('gemini-2.5-flash'),
+        model,
         prompt: fullPrompt,
         config: { temperature: 0.7, maxOutputTokens: 2000 },
     });
 
     let text = response.text;
-    // Enforce 5000 char server-side trimming
     if (text.length > 5000) {
         text = text.substring(0, 997) + '...';
     }
@@ -102,7 +152,7 @@ export async function generateModuleList(
     courseDescription: string,
     adminGuidelines?: string
 ): Promise<Array<{ title: string }>> {
-    const ai = await getGenkitClient();
+    const { ai, model } = await getAiClient();
     const systemPrompt = await getPromptSetting(
         'PROMPT_MODULE_GENERATION',
         `Kamu adalah asisten pembuatan kurikulum LMS. Berdasarkan judul dan deskripsi kursus yang diberikan, 
@@ -118,7 +168,7 @@ Judul modul ditulis dalam Bahasa Indonesia.`
     }
 
     const response = await ai.generate({
-        model: gemini('gemini-2.5-flash'),
+        model,
         prompt: fullPrompt,
         output: { schema: ModuleListSchema },
         config: { temperature: 0.6 },
@@ -135,9 +185,10 @@ const LessonListSchema = z.array(z.object({
 
 export async function generateLessonList(
     moduleTitle: string,
-    courseTitle: string
+    courseTitle: string,
+    adminGuidelines?: string
 ): Promise<Array<{ title: string; type: 'TEXT' | 'VIDEO' | 'DOCUMENT' }>> {
-    const ai = await getGenkitClient();
+    const { ai, model } = await getAiClient();
     const systemPrompt = await getPromptSetting(
         'PROMPT_LESSON_GENERATION',
         `Kamu adalah asisten pembuatan kurikulum LMS. Berdasarkan judul modul yang diberikan,
@@ -147,10 +198,13 @@ Tentukan tipe pelajaran (TEXT untuk konten teks, VIDEO untuk konten video, DOCUM
 Default ke TEXT jika tidak ada konteks yang jelas.`
     );
 
-    const fullPrompt = `${systemPrompt}\n\nJudul Kursus: "${courseTitle}"\nJudul Modul: "${moduleTitle}"`;
+    let fullPrompt = `${systemPrompt}\n\nJudul Kursus: "${courseTitle}"\nJudul Modul: "${moduleTitle}"`;
+    if (adminGuidelines?.trim()) {
+        fullPrompt += `\n\nArahan tambahan dari Admin: ${adminGuidelines.trim()}`;
+    }
 
     const response = await ai.generate({
-        model: gemini('gemini-2.5-flash'),
+        model,
         prompt: fullPrompt,
         output: { schema: LessonListSchema },
         config: { temperature: 0.6 },
@@ -165,7 +219,7 @@ export async function generateLessonContent(
     moduleTitle: string,
     courseTitle: string
 ): Promise<string> {
-    const ai = await getGenkitClient();
+    const { ai, model } = await getAiClient();
     const systemPrompt = await getPromptSetting(
         'PROMPT_LESSON_CONTENT',
         `Kamu adalah mesin pembuat konten pelatihan LMS yang dipanggil oleh sistem otomatis (bukan manusia).
@@ -181,7 +235,7 @@ Konten ditulis dalam Bahasa Indonesia. Gunakan maksimal 5000 token agar konten t
     const fullPrompt = `${systemPrompt}\n\nKursus: "${courseTitle}"\nModul: "${moduleTitle}"\nJudul Pelajaran: "${lessonTitle}"\n\nLangsung tulis konten pelajaran lengkap:`;
 
     const response = await ai.generate({
-        model: gemini('gemini-2.5-flash'),
+        model,
         prompt: fullPrompt,
         config: { temperature: 0.7, maxOutputTokens: 5000 },
     });
@@ -199,7 +253,7 @@ const QuizQuestionSchema = z.array(z.object({
 }));
 
 export async function generateQuizQuestions(topic: string, count: number = 5, context?: string) {
-    const ai = await getGenkitClient();
+    const { ai, model } = await getAiClient();
 
     const systemPrompt = await getPromptSetting(
         'PROMPT_QUIZ_GENERATION',
@@ -212,7 +266,7 @@ export async function generateQuizQuestions(topic: string, count: number = 5, co
     }
 
     const response = await ai.generate({
-        model: gemini('gemini-2.5-flash'),
+        model,
         prompt: fullPrompt,
         output: { schema: QuizQuestionSchema },
         config: {
@@ -233,7 +287,7 @@ const EssayScoreSchema = z.object({
 });
 
 export async function gradeEssayAnswer(questionText: string, studentAnswer: string) {
-    const ai = await getGenkitClient();
+    const { ai, model } = await getAiClient();
 
     const systemPrompt = await getPromptSetting(
         'PROMPT_ESSAY_GRADING',
@@ -243,7 +297,7 @@ export async function gradeEssayAnswer(questionText: string, studentAnswer: stri
     const fullPrompt = `${systemPrompt}\n\nQuestion: ${questionText}\n\nStudent Answer:\n${studentAnswer}\n\nPlease grade this answer.`;
 
     const response = await ai.generate({
-        model: gemini('gemini-2.5-flash'),
+        model,
         prompt: fullPrompt,
         output: { schema: EssayScoreSchema },
         config: {
