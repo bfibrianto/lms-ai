@@ -5,9 +5,11 @@ import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Clock, AlertTriangle } from 'lucide-react'
 import { CoursePlayer } from '@/components/portal/courses/course-player'
 import type { QuizItem } from '@/components/portal/courses/course-player'
+import { format } from 'date-fns'
+import { id as idLocale } from 'date-fns/locale'
 
 const levelLabels: Record<string, string> = {
   BEGINNER: 'Pemula',
@@ -29,6 +31,25 @@ export default async function CoursePlayerPage({ params }: PageProps) {
   })
 
   if (!enrollment) redirect('/portal/courses')
+
+  // Check Expiration
+  const isExpired = enrollment.isTemporary && enrollment.expiresAt && new Date() > new Date(enrollment.expiresAt)
+  if (isExpired) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
+        <div className="rounded-full bg-destructive/10 p-5">
+          <AlertTriangle className="h-10 w-10 text-destructive" />
+        </div>
+        <h2 className="text-2xl font-bold">Masa Akses Kedaluwarsa</h2>
+        <p className="text-muted-foreground max-w-md mx-auto">
+          Masa berlaku akses sementara Anda untuk kursus ini telah habis. Silakan hubungi admin jika Anda membutuhkan akses secara permanen.
+        </p>
+        <Button asChild className="mt-4">
+          <Link href="/portal/my-courses">Kembali ke Pembelajaran Saya</Link>
+        </Button>
+      </div>
+    )
+  }
 
   const [course, completedLessonIds, quizzesRaw] = await Promise.all([
     db.course.findUnique({
@@ -137,6 +158,16 @@ export default async function CoursePlayerPage({ params }: PageProps) {
           <p className="text-xs text-muted-foreground">selesai</p>
         </div>
       </div>
+
+      {enrollment.isTemporary && enrollment.expiresAt && !isExpired && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 p-4 mb-4 flex gap-3 text-amber-800">
+          <Clock className="h-5 w-5 shrink-0" />
+          <div className="text-sm">
+            <p className="font-semibold">Akses Sementara</p>
+            <p>Anda memiliki akses ke kursus ini hingga <strong>{format(new Date(enrollment.expiresAt), 'd MMM yyyy, HH:mm', { locale: idLocale })}</strong>.</p>
+          </div>
+        </div>
+      )}
 
       {/* Progress bar */}
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">

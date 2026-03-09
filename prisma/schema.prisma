@@ -141,6 +141,7 @@ model Course {
   quizzes       Quiz[]
   learningPaths PathCourse[]
   certificates  Certificate[]
+  trainings     TrainingCourse[]
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
@@ -158,6 +159,8 @@ model Enrollment {
   lastLessonId String?
   enrolledAt   DateTime           @default(now())
   completedAt  DateTime?
+  isTemporary  Boolean            @default(false)
+  expiresAt    DateTime?
   updatedAt    DateTime           @updatedAt
   completions  LessonCompletion[]
   quizAttempts QuizAttempt[]
@@ -205,6 +208,7 @@ model Training {
   creatorId     String
   creator       User                   @relation("TrainingCreator", fields: [creatorId], references: [id])
   registrations TrainingRegistration[]
+  courses       TrainingCourse[]
   createdAt     DateTime               @default(now())
   updatedAt     DateTime               @updatedAt
 
@@ -223,6 +227,20 @@ model TrainingRegistration {
 
   @@unique([userId, trainingId])
   @@map("training_registrations")
+}
+
+model TrainingCourse {
+  id                   String   @id @default(cuid())
+  trainingId           String
+  training             Training @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+  courseId             String
+  course               Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  accessDurationInDays Int      @default(14)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@unique([trainingId, courseId])
+  @@map("training_courses")
 }
 
 model Module {
