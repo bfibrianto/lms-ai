@@ -197,7 +197,7 @@ export async function getCoursePreviewContent(courseId: string) {
 export type CoursePreview = NonNullable<Awaited<ReturnType<typeof getCoursePreviewContent>>>
 
 export async function getCourseById(courseId: string): Promise<CourseDetail | null> {
-  return db.course.findUnique({
+  const course = await db.course.findUnique({
     where: { id: courseId },
     select: {
       id: true,
@@ -205,6 +205,9 @@ export async function getCourseById(courseId: string): Promise<CourseDetail | nu
       description: true,
       thumbnail: true,
       level: true,
+      visibility: true,
+      price: true,
+      promoPrice: true,
       status: true,
       creatorId: true,
       creator: { select: { name: true } },
@@ -235,6 +238,14 @@ export async function getCourseById(courseId: string): Promise<CourseDetail | nu
       },
     },
   })
+
+  if (!course) return null
+
+  return {
+    ...course,
+    price: course.price != null ? Number(course.price) : null,
+    promoPrice: course.promoPrice != null ? Number(course.promoPrice) : null,
+  }
 }
 
 // ---------------------------------------------------------------------------

@@ -39,6 +39,9 @@ export type CourseDetail = {
   description: string | null
   thumbnail: string | null
   level: CourseLevel
+  visibility: string
+  price: number | null
+  promoPrice: number | null
   status: CourseStatus
   creatorId: string
   creator: { name: string }
