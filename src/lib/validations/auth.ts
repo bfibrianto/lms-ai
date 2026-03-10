@@ -8,8 +8,9 @@ export const RegisterCustomerSchema = z.object({
         .transform((v) => v.trim()),
     email: z
         .string()
-        .email('Format email tidak valid')
-        .transform((v) => v.toLowerCase().trim()),
+        .trim()
+        .toLowerCase()
+        .email('Format email tidak valid'),
     password: z
         .string()
         .min(8, 'Password minimal 8 karakter')
@@ -22,3 +23,23 @@ export const RegisterCustomerSchema = z.object({
 })
 
 export type RegisterCustomerInput = z.infer<typeof RegisterCustomerSchema>
+
+export const ForgotPasswordSchema = z.object({
+    email: z.string().trim().toLowerCase().email('Format email tidak valid'),
+})
+
+export type ForgotPasswordInput = z.infer<typeof ForgotPasswordSchema>
+
+export const ResetPasswordSchema = z.object({
+    password: z
+        .string()
+        .min(8, 'Password minimal 8 karakter')
+        .regex(/[A-Za-z]/, 'Password harus mengandung huruf')
+        .regex(/[0-9]/, 'Password harus mengandung angka'),
+    confirmPassword: z.string().min(1, 'Konfirmasi password wajib diisi'),
+}).refine((data) => data.password === data.confirmPassword, {
+    message: 'Konfirmasi password tidak cocok',
+    path: ['confirmPassword'],
+})
+
+export type ResetPasswordInput = z.infer<typeof ResetPasswordSchema>
