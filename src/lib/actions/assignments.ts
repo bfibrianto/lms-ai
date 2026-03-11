@@ -4,6 +4,8 @@ import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { revalidatePath } from 'next/cache'
 import { AssignmentType } from '@/generated/prisma/client'
+import { sendEmail } from '@/lib/email'
+import { getEmailNotificationPrefs } from '@/lib/actions/settings'
 
 async function requireAdmin() {
     const session = await auth()
@@ -79,6 +81,24 @@ export async function createAssignment(data: CreateAssignmentData) {
                     update: { isMandatory: true, startDate: data.startDate, dueDate: data.dueDate },
                     create: { userId, pathId: data.itemId, isMandatory: true, startDate: data.startDate, dueDate: data.dueDate }
                 })
+            }
+        }
+
+        // 3. Send Emails if allowed
+        const prefs = await getEmailNotificationPrefs()
+        if (prefs.MANDATORY_ASSIGNMENT) {
+            const users = await db.user.findMany({
+                where: { id: { in: data.userIds } },
+                select: { email: true, name: true }
+            })
+            for (const u of users) {
+                if (u.email) {
+                    sendEmail({
+                        to: u.email,
+                        subject: `Penugasan Wajib Baru: ${data.title}`,
+                        body: `Halo ${u.name},\n\nAnda mendapatkan penugasan wajib baru "${data.title}" dengan tenggat waktu penyelesaian pada ${data.dueDate.toLocaleDateString('id-ID')}.\nSilakan cek portal platform untuk mengakses dan menyelesaikannya tepat waktu.\n\nSalam,\nTim LMS AI`
+                    }).catch(console.error)
+                }
             }
         }
 

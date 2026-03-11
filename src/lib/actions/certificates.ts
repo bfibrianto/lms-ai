@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 import { createNotification } from '@/lib/actions/notifications'
 import { sendEmail } from '@/lib/email'
+import { getEmailNotificationPrefs } from '@/lib/actions/settings'
 
 /**
  * Helper internal function to generate a certificate when a condition is met
@@ -51,11 +52,14 @@ export async function generateCertificate(params: {
     })
 
     if (cert.user.email) {
-        await sendEmail({
-            to: cert.user.email,
-            subject: `Sertifikat Kelulusan: ${itemName}`,
-            body: `Halo ${cert.user.name},\n\nSelamat! Anda telah mendapatkan sertifikat kelulusan untuk "${itemName}". Anda dapat mengunduhnya di portal LMS.\n\nSalam,\nTim LMS AI`
-        })
+        const prefs = await getEmailNotificationPrefs();
+        if (prefs.COURSE_COMPLETED) {
+            await sendEmail({
+                to: cert.user.email,
+                subject: `Sertifikat Kelulusan: ${itemName}`,
+                body: `Halo ${cert.user.name},\n\nSelamat! Anda telah mendapatkan sertifikat kelulusan untuk "${itemName}". Anda dapat mengunduhnya di portal LMS.\n\nSalam,\nTim LMS AI`
+            })
+        }
     }
 
     return cert

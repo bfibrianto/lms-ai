@@ -5,6 +5,8 @@ import { db } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { OrderStatus, OrderItemType } from '@/generated/prisma/client'
 import { CreateOrderSchema } from '@/lib/validations/orders'
+import { sendEmail } from '@/lib/email'
+import { getEmailNotificationPrefs } from '@/lib/actions/settings'
 
 type ActionResult<T = void> = {
     success: boolean
@@ -182,6 +184,15 @@ export async function createOrder(
         await autoEnroll(session.user.id, itemType, itemId)
     }
 
+    const prefs = await getEmailNotificationPrefs()
+    if (prefs.ORDER_CREATED && session.user.email) {
+        sendEmail({
+            to: session.user.email,
+            subject: `Pesanan Berhasil Dibuat: ${itemTitle}`,
+            body: `Halo,\nAnda telah membuat pesanan untuk "${itemTitle}".\nStatus pesanan saat ini adalah: ${isFree ? 'LUNAS' : 'MENUNGGU PEMBAYARAN'}.\nTerima kasih atas pesanan Anda.\n\nSalam,\nTim LMS AI`
+        }).catch(console.error)
+    }
+
     revalidatePath('/portal/orders')
     return { success: true, data: { orderId: order.id, autoEnrolled: isFree } }
 }
@@ -289,6 +300,18 @@ export async function confirmOrder(orderId: string): Promise<ActionResult> {
             message: `Pembayaran untuk "${order.itemTitle}" telah dikonfirmasi oleh ${session.user.name}. Selamat belajar!`,
         },
     })
+
+    const prefs = await getEmailNotificationPrefs()
+    if (prefs.PAYMENT_VERIFIED) {
+        const user = await db.user.findUnique({ where: { id: order.userId }, select: { email: true, name: true } })
+        if (user?.email) {
+            sendEmail({
+                to: user.email,
+                subject: `Pembayaran Dikonfirmasi: ${order.itemTitle}`,
+                body: `Halo ${user.name},\n\nPembayaran Anda untuk "${order.itemTitle}" telah dikonfirmasi oleh admin. Anda sudah bisa mengakses materi tersebut sekarang juga.\n\nSalam,\nTim LMS AI`
+            }).catch(console.error)
+        }
+    }
 
     revalidatePath('/backoffice/orders')
     return { success: true }

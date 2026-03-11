@@ -8,6 +8,7 @@ import { generateCertificate } from '@/lib/actions/certificates'
 import { awardPoints } from '@/lib/actions/gamification'
 import { createNotification } from '@/lib/actions/notifications'
 import { sendEmail } from '@/lib/email'
+import { getEmailNotificationPrefs } from '@/lib/actions/settings'
 
 async function requireAuth() {
   const session = await auth()
@@ -45,7 +46,8 @@ export async function enrollCourse(
       actionUrl: `/portal/my-courses/${courseId}`
     })
 
-    if (user.email) {
+    const prefs = await getEmailNotificationPrefs();
+    if (user.email && prefs.TRAINING_REGISTERED) {
       await sendEmail({
         to: user.email,
         subject: `Pendaftaran Kursus: ${course.title}`,

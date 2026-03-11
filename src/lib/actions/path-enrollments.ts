@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { generateCertificate } from '@/lib/actions/certificates'
 import { createNotification } from '@/lib/actions/notifications'
 import { sendEmail } from '@/lib/email'
+import { getEmailNotificationPrefs } from '@/lib/actions/settings'
 
 // ─── PORTAL ACTIONS ──────────────────────────────
 
@@ -165,11 +166,14 @@ export async function enrollInPath(pathId: string) {
     })
 
     if (session.user.email) {
-        await sendEmail({
-            to: session.user.email,
-            subject: `Pendaftaran Learning Path: ${path.title}`,
-            body: `Halo ${session.user.name},\n\nAnda telah terdaftar di learning path "${path.title}".\n\nSalam,\nTim LMS AI`
-        })
+        const prefs = await getEmailNotificationPrefs();
+        if (prefs.TRAINING_REGISTERED) {
+            await sendEmail({
+                to: session.user.email,
+                subject: `Pendaftaran Learning Path: ${path.title}`,
+                body: `Halo ${session.user.name},\n\nAnda telah terdaftar di learning path "${path.title}".\n\nSalam,\nTim LMS AI`
+            })
+        }
     }
 
     revalidatePath(`/portal/learning-paths/${pathId}`)
