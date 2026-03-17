@@ -1,6 +1,7 @@
 'use server';
 
-import { generateContentCompletion, generateCourseDescription, generateLessonContent, generateLessonList, generateModuleList, generateQuizQuestions, gradeEssayAnswer } from '@/lib/ai';
+import { generateContentCompletion, generateCourseDescription, generateLessonContent, generateLessonList, generateModuleList, generateQuizQuestions, generateQuizQuestionsWithContext, gradeEssayAnswer } from '@/lib/ai';
+import type { GeneratedQuestion, GenerateQuizQuestionsWithContextParams } from '@/lib/ai';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 
@@ -242,5 +243,65 @@ export async function suggestEssayScoreAction(questionText: string, studentAnswe
     } catch (error: any) {
         console.error('suggestEssayScoreAction error:', error);
         return { success: false, error: error.message || 'Gagal menilai essay.' };
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Context-Aware Quiz Generation (TASK-026)
+// ---------------------------------------------------------------------------
+
+export interface GenerateQuizQuestionsContextPayload {
+    quizId: string
+    editedContext: string
+    count: number
+    questionTypes: Array<'MULTIPLE_CHOICE' | 'ESSAY'>
+}
+
+/**
+ * Generates quiz questions using module/lesson context provided by the user.
+ * Context has already been assembled and optionally edited on the client side.
+ */
+export async function generateQuizQuestionsContextAction(
+    payload: GenerateQuizQuestionsContextPayload
+): Promise<{ success: boolean; data?: GeneratedQuestion[]; error?: string }> {
+    try {
+        const session = await auth()
+        if (!session?.user || session.user.role === 'EMPLOYEE') {
+            return { success: false, error: 'Unauthorized' }
+        }
+
+        if (!payload.editedContext.trim() || payload.editedContext.trim().length < 10) {
+            return { success: false, error: 'Konteks materi tidak boleh kosong.' }
+        }
+
+        if (payload.count < 1 || payload.count > 30) {
+            return { success: false, error: 'Jumlah soal harus antara 1 dan 30.' }
+        }
+
+        if (!payload.questionTypes || payload.questionTypes.length === 0) {
+            return { success: false, error: 'Pilih minimal satu tipe soal.' }
+        }
+
+        const quiz = await db.quiz.findUnique({
+            where: { id: payload.quizId },
+            select: {
+                title: true,
+                course: { select: { title: true } },
+            },
+        })
+        if (!quiz) return { success: false, error: 'Quiz tidak ditemukan.' }
+
+        const questions = await generateQuizQuestionsWithContext({
+            quizTitle: quiz.title,
+            courseTitle: quiz.course.title,
+            context: payload.editedContext,
+            count: payload.count,
+            questionTypes: payload.questionTypes,
+        })
+
+        return { success: true, data: questions }
+    } catch (error: any) {
+        console.error('generateQuizQuestionsContextAction error:', error)
+        return { success: false, error: error.message || 'Gagal generate soal quiz.' }
     }
 }

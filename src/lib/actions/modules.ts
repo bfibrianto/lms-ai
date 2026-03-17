@@ -175,3 +175,76 @@ export async function batchReorderCourseItems(
   revalidatePath(`/backoffice/courses/${courseId}`)
   return { success: true, data: undefined }
 }
+
+// ---------------------------------------------------------------------------
+// Context Loader for AI Quiz Generation (TASK-026)
+// ---------------------------------------------------------------------------
+
+export type LessonForContext = {
+  id: string
+  title: string
+  type: 'TEXT' | 'VIDEO' | 'DOCUMENT'
+  content: string | null
+  order: number
+}
+
+export type ModuleWithTextLessons = {
+  id: string
+  title: string
+  order: number
+  lessons: LessonForContext[]
+}
+
+// Helper: extract summary (2 kalimat pertama)
+function extractSummary(text: string | null | undefined, maxSentences = 2): string | null {
+  if (!text) return null
+  // Simple split by period/question/exclamation
+  const sentences = text.match(/[^.!?\n]+[.!?\n]+/g) || [text]
+  return sentences.slice(0, maxSentences).join('').trim()
+}
+
+export async function getModulesWithLessonsForContext(
+  courseId: string
+): Promise<ActionResult<ModuleWithTextLessons[]>> {
+  try {
+    const session = await auth()
+    if (!session?.user) return { success: false, error: 'Tidak terautentikasi' }
+    if (!((['SUPER_ADMIN', 'HR_ADMIN', 'MENTOR'] as string[]).includes(session.user.role))) {
+      return { success: false, error: 'Akses ditolak' }
+    }
+
+    const modules = await db.module.findMany({
+      where: { courseId },
+      orderBy: { order: 'asc' },
+      select: {
+        id: true,
+        title: true,
+        order: true,
+        lessons: {
+          orderBy: { order: 'asc' },
+          select: {
+            id: true,
+            title: true,
+            type: true,
+            content: true,
+            order: true,
+          },
+        },
+      },
+    })
+
+    // Mask content for non-TEXT lessons, and extract summary for TEXT
+    const result: ModuleWithTextLessons[] = modules.map((mod) => ({
+      ...mod,
+      lessons: mod.lessons.map((lesson) => ({
+        ...lesson,
+        type: lesson.type as 'TEXT' | 'VIDEO' | 'DOCUMENT',
+        content: lesson.type === 'TEXT' ? extractSummary(lesson.content) : null,
+      })),
+    }))
+
+    return { success: true, data: result }
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Gagal memuat modul.' }
+  }
+}

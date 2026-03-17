@@ -231,6 +231,71 @@ export async function addQuestion(
     return { success: true }
 }
 
+// ---------------------------------------------------------------------------
+// Bulk Add Questions
+// ---------------------------------------------------------------------------
+
+export async function bulkAddQuestions(
+    quizId: string,
+    questions: Array<{
+        type: string
+        text: string
+        points: number
+        rubric?: string
+        options?: { text: string; isCorrect: boolean }[]
+    }>
+): Promise<{ success: boolean; error?: string; addedCount?: number }> {
+    await requireWriteAccess()
+
+    if (!questions || questions.length === 0) {
+        return { success: false, error: 'Tidak ada soal yang akan ditambahkan' }
+    }
+
+    // Get current max order
+    const lastQuestion = await db.question.findFirst({
+        where: { quizId },
+        orderBy: { order: 'desc' },
+        select: { order: true },
+    })
+    let nextOrder = (lastQuestion?.order ?? -1) + 1
+
+    await db.$transaction(async (tx) => {
+        for (const q of questions) {
+            const parsed = QuestionSchema.safeParse(q)
+            if (!parsed.success) continue
+
+            await tx.question.create({
+                data: {
+                    quizId,
+                    type: parsed.data.type as 'MULTIPLE_CHOICE' | 'ESSAY',
+                    text: parsed.data.text,
+                    points: parsed.data.points,
+                    order: nextOrder++,
+                    ...(parsed.data.type === 'MULTIPLE_CHOICE' && parsed.data.options
+                        ? {
+                            options: {
+                                create: parsed.data.options.map((opt, idx) => ({
+                                    text: opt.text,
+                                    isCorrect: opt.isCorrect,
+                                    order: idx,
+                                })),
+                            },
+                        }
+                        : {}),
+                },
+            })
+        }
+    })
+
+    const quiz = await db.quiz.findUnique({
+        where: { id: quizId },
+        select: { courseId: true },
+    })
+    if (quiz) revalidatePath(`/backoffice/courses/${quiz.courseId}`)
+
+    return { success: true, addedCount: questions.length }
+}
+
 export async function updateQuestion(
     questionId: string,
     data: { type: string; text: string; points: number; options?: { text: string; isCorrect: boolean }[] }

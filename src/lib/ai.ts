@@ -281,6 +281,96 @@ export async function generateQuizQuestions(topic: string, count: number = 5, co
     return response.output;
 }
 
+// ─── Context-Aware Quiz Generation (TASK-026) ────────────────────────────────
+
+const MultipleChoiceQuestionSchema = z.object({
+    type: z.enum(['MULTIPLE_CHOICE']),
+    text: z.string().describe('Teks pertanyaan'),
+    points: z.number().default(1),
+    explanation: z.string().optional().describe('Penjelasan mengapa jawaban tersebut benar'),
+    options: z.array(z.object({
+        text: z.string().describe('Teks pilihan jawaban'),
+        isCorrect: z.boolean().describe('Apakah pilihan ini jawaban yang benar'),
+    })).min(3).max(5).describe('Minimal 3, maksimal 5 pilihan jawaban. Tepat 1 isCorrect = true'),
+})
+
+const EssayQuestionContextSchema = z.object({
+    type: z.enum(['ESSAY']),
+    text: z.string().describe('Teks pertanyaan essay'),
+    points: z.number().default(5),
+    rubric: z.string().optional().describe('Rubrik atau panduan penilaian jawaban essay'),
+})
+
+const GeneratedQuestionSchema = z.discriminatedUnion('type', [
+    MultipleChoiceQuestionSchema,
+    EssayQuestionContextSchema,
+])
+
+const GeneratedQuizOutputSchema = z.object({
+    questions: z.array(GeneratedQuestionSchema),
+})
+
+export type GeneratedQuestion = z.infer<typeof GeneratedQuestionSchema>
+
+export interface GenerateQuizQuestionsWithContextParams {
+    quizTitle: string
+    courseTitle: string
+    context: string
+    count: number
+    questionTypes: Array<'MULTIPLE_CHOICE' | 'ESSAY'>
+}
+
+export async function generateQuizQuestionsWithContext(
+    params: GenerateQuizQuestionsWithContextParams
+): Promise<GeneratedQuestion[]> {
+    const { quizTitle, courseTitle, context, count, questionTypes } = params
+    const { ai, model } = await getAiClient()
+
+    const systemPrompt = await getPromptSetting(
+        'PROMPT_QUIZ_GENERATION_CONTEXT',
+        `Kamu adalah pakar pembuatan soal evaluasi untuk platform LMS.
+Tugasmu adalah membuat soal quiz yang relevan, akurat, dan mengukur pemahaman peserta
+berdasarkan konteks materi yang diberikan.
+
+KETENTUAN WAJIB:
+- Buat soal HANYA berdasarkan materi dalam "KONTEKS MATERI" yang diberikan.
+- Jangan tambahkan pengetahuan di luar konteks tersebut.
+- Untuk MULTIPLE_CHOICE: buat tepat 4 pilihan jawaban, tepat 1 yang benar (isCorrect: true), sertakan explanation.
+- Untuk ESSAY: buat pertanyaan terbuka yang mendorong analisis mendalam, sertakan rubric penilaian.
+- Soal ditulis dalam Bahasa Indonesia yang jelas dan tidak ambigu.
+- Variasikan tingkat kesulitan (mudah, sedang, sulit).
+- Output harus berupa JSON sesuai schema yang diminta.
+- JANGAN menambahkan sapaan atau teks di luar JSON output.`
+    )
+
+    const typeInstruction = questionTypes.length === 2
+        ? `Buat campuran soal MULTIPLE_CHOICE dan ESSAY secara proporsional (sekitar 70% MULTIPLE_CHOICE, 30% ESSAY).`
+        : `Buat semua soal bertipe ${questionTypes[0]}.`
+
+    const fullPrompt = `${systemPrompt}
+
+JUDUL KURSUS: "${courseTitle}"
+JUDUL QUIZ: "${quizTitle}"
+JUMLAH SOAL YANG DIMINTA: ${count}
+TIPE SOAL: ${typeInstruction}
+
+--- KONTEKS MATERI ---
+${context}
+--- AKHIR KONTEKS MATERI ---
+
+Hasilkan tepat ${count} soal quiz berdasarkan konteks materi di atas.`
+
+    const response = await ai.generate({
+        model,
+        prompt: fullPrompt,
+        output: { schema: GeneratedQuizOutputSchema },
+        config: { temperature: 0.5, maxOutputTokens: 4096 },
+    })
+
+    if (!response.output) throw new Error('Gagal menghasilkan soal quiz.')
+    return response.output.questions
+}
+
 const EssayScoreSchema = z.object({
     score: z.number().describe("Integer score from 0-100"),
     feedback: z.string().describe("Explanation for the score")

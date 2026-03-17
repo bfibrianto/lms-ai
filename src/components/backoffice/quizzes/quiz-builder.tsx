@@ -35,8 +35,8 @@ import {
 } from '@/components/ui/alert-dialog'
 import { QuizSettingsForm } from './quiz-settings-form'
 import { QuestionEditor } from './question-editor'
-import { deleteQuiz, deleteQuestion } from '@/lib/actions/quizzes'
-import { GenerateQuizModal } from './generate-quiz-modal'
+import { deleteQuiz, deleteQuestion, bulkAddQuestions } from '@/lib/actions/quizzes'
+import { AIGenerateQuizDialog } from './ai-generate-quiz-dialog'
 import type { QuizDetail } from '@/types/quizzes'
 
 interface QuizBuilderProps {
@@ -285,11 +285,21 @@ export function QuizBuilder({ courseId, quizzes, canEdit }: QuizBuilderProps) {
                                 </Button>
                             </div>
 
-                            <GenerateQuizModal
+                            <AIGenerateQuizDialog
                                 quizId={quiz.id}
-                                isOpen={generatingQuizId === quiz.id}
+                                courseId={courseId}
+                                open={generatingQuizId === quiz.id}
                                 onOpenChange={(open) => setGeneratingQuizId(open ? quiz.id : null)}
-                                onSuccess={() => setGeneratingQuizId(null)}
+                                onQuestionsConfirmed={async (questions) => {
+                                    const result = await bulkAddQuestions(quiz.id, questions)
+                                    if (result.success) {
+                                        toast.success(`${result.addedCount} soal berhasil ditambahkan`)
+                                        setGeneratingQuizId(null)
+                                    } else {
+                                        toast.error(result.error ?? 'Gagal menyimpan soal')
+                                        throw new Error(result.error)
+                                    }
+                                }}
                             />
                         </div>
                     )}
