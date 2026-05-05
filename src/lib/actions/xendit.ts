@@ -141,6 +141,51 @@ export async function createOrderWithXenditInvoice(
     }
 }
 
+export async function getOrderPaymentDetails(
+    orderId: string
+): Promise<
+    ActionResult<{
+        status: string
+        xenditInvoiceUrl: string | null
+        itemType: string
+        itemId: string
+        itemTitle: string
+        price: number
+        originalPrice: number
+    }>
+> {
+    const session = await auth()
+    if (!session?.user) return { success: false, error: 'Tidak terautentikasi' }
+
+    const order = await db.order.findFirst({
+        where: { id: orderId, userId: session.user.id },
+        select: {
+            status: true,
+            xenditInvoiceUrl: true,
+            itemType: true,
+            itemId: true,
+            itemTitle: true,
+            price: true,
+            originalPrice: true,
+        },
+    })
+
+    if (!order) return { success: false, error: 'Pesanan tidak ditemukan' }
+
+    return {
+        success: true,
+        data: {
+            status: order.status,
+            xenditInvoiceUrl: order.xenditInvoiceUrl,
+            itemType: order.itemType,
+            itemId: order.itemId,
+            itemTitle: order.itemTitle,
+            price: Number(order.price),
+            originalPrice: Number(order.originalPrice),
+        },
+    }
+}
+
 export async function getOrderStatus(
     orderId: string
 ): Promise<ActionResult<{ status: string; xenditInvoiceUrl: string | null; itemType: string; itemId: string }>> {

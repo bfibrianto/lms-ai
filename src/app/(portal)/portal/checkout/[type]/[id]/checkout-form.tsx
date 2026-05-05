@@ -70,7 +70,7 @@ export function CheckoutForm({
             return
         }
 
-        // Paid item — use Xendit
+        // Paid item — use Xendit, then redirect to our own payment page
         const result = await createOrderWithXenditInvoice(item.type, item.id)
         setLoading(false)
 
@@ -79,8 +79,8 @@ export function CheckoutForm({
             return
         }
 
-        // Redirect to Xendit hosted invoice page
-        window.location.href = result.data.invoiceUrl
+        // Redirect to our custom payment page (not Xendit-hosted)
+        router.push(`/portal/payment/${result.data.orderId}`)
     }
 
     // Already ordered
@@ -114,13 +114,10 @@ export function CheckoutForm({
                             Anda sudah memiliki pesanan untuk item ini. Selesaikan pembayaran untuk melanjutkan.
                         </p>
                         <div className="flex flex-col gap-2 mt-2">
-                            {existingInvoiceUrl && (
-                                <Button
-                                    className="w-full"
-                                    onClick={() => { window.location.href = existingInvoiceUrl! }}
-                                >
-                                    Bayar Sekarang
-                                </Button>
+                            {existingOrderId && (
+                                <Link href={`/portal/payment/${existingOrderId}`}>
+                                    <Button className="w-full">Lanjutkan Pembayaran</Button>
+                                </Link>
                             )}
                             {existingOrderId && (
                                 <Link href={`/portal/orders/${existingOrderId}`}>
@@ -216,7 +213,7 @@ export function CheckoutForm({
                             {loading ? (
                                 <>
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    {isFree ? 'Memproses...' : 'Menyiapkan halaman pembayaran Xendit...'}
+                                    {isFree ? 'Memproses...' : 'Menyiapkan pembayaran...'}
                                 </>
                             ) : isFree ? (
                                 'Ambil Gratis'

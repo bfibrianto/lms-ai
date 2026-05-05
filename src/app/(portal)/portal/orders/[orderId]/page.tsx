@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { getOrderStatus } from '@/lib/actions/xendit'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { CheckCircle, AlertCircle, Loader2, ExternalLink } from 'lucide-react'
+import { CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 
 type OrderStatus = 'PENDING' | 'PAID' | 'CANCELLED' | 'REFUNDED'
 
@@ -166,14 +166,12 @@ export default function OrderDetailPage({ params }: { params: { orderId: string 
                         </>
                     )}
                     <div className="flex flex-col gap-2 mt-2">
-                        {orderData?.xenditInvoiceUrl && (
-                            <Button
-                                className="w-full"
-                                onClick={() => { window.location.href = orderData.xenditInvoiceUrl! }}
-                            >
-                                <ExternalLink className="mr-2 h-4 w-4" />
-                                Buka Halaman Pembayaran
-                            </Button>
+                        {!pollingDone ? (
+                            <></>
+                        ) : (
+                            <Link href={`/portal/payment/${orderId}`}>
+                                <Button className="w-full">Lanjutkan Pembayaran</Button>
+                            </Link>
                         )}
                         <Link href="/portal/orders">
                             <Button variant="outline" className="w-full">Lihat Pesanan Saya</Button>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createOrderWithXenditInvoice } from '@/lib/actions/xendit'
 import { Button } from '@/components/ui/button'
 import { Loader2 } from 'lucide-react'
@@ -23,6 +24,7 @@ export function XenditPaymentButton({
     variant = 'default',
     size = 'default',
 }: XenditPaymentButtonProps) {
+    const router = useRouter()
     const [loading, setLoading] = useState(false)
 
     async function handleClick() {
@@ -35,7 +37,8 @@ export function XenditPaymentButton({
             return
         }
 
-        window.location.href = result.data.invoiceUrl
+        // Redirect to our custom payment page (not Xendit-hosted)
+        router.push(`/portal/payment/${result.data.orderId}`)
     }
 
     return (
