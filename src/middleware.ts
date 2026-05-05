@@ -26,6 +26,9 @@ export async function middleware(request: NextRequest) {
 
   if (isApiAuth) return NextResponse.next()
 
+  // Bypass all other API routes (webhooks, etc.) — no auth needed at middleware level
+  if (pathname.startsWith('/api/')) return NextResponse.next()
+
   // Catch NextAuth default signin redirect → redirect to our custom login page
   if (pathname === '/auth/signin' || pathname === '/signin') {
     return NextResponse.redirect(new URL('/auth/login', request.url))
