@@ -33,7 +33,7 @@ async function requireAdminAccess() {
     return session
 }
 
-async function autoEnroll(userId: string, itemType: string, itemId: string) {
+export async function autoEnroll(userId: string, itemType: string, itemId: string) {
     if (itemType === 'COURSE') {
         const exists = await db.enrollment.findUnique({
             where: { userId_courseId: { userId, courseId: itemId } },

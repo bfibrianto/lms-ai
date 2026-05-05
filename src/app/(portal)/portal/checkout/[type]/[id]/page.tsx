@@ -43,6 +43,8 @@ export default async function CheckoutPage({
                 hasDiscount,
             }}
             existingOrderStatus={existingOrder?.status ?? null}
+            existingOrderId={existingOrder?.id ?? null}
+            existingInvoiceUrl={existingOrder?.xenditInvoiceUrl ?? null}
         />
     )
 }

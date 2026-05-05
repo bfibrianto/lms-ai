@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createOrder } from '@/lib/actions/orders'
+import { createOrderWithXenditInvoice } from '@/lib/actions/xendit'
 import { formatRupiah, calculateDiscount } from '@/lib/utils/format-currency'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -34,40 +35,52 @@ type CheckoutItem = {
 export function CheckoutForm({
     item,
     existingOrderStatus,
+    existingOrderId,
+    existingInvoiceUrl,
 }: {
     item: CheckoutItem
     existingOrderStatus: string | null
+    existingOrderId?: string | null
+    existingInvoiceUrl?: string | null
 }) {
     const router = useRouter()
     const [loading, setLoading] = useState(false)
-    const [orderSuccess, setOrderSuccess] = useState<{
-        orderId: string
-        autoEnrolled: boolean
-    } | null>(null)
 
     const isFree = item.effectivePrice === 0
 
     async function handleCheckout() {
         setLoading(true)
-        const formData = new FormData()
-        formData.set('itemType', item.type)
-        formData.set('itemId', item.id)
 
-        const result = await createOrder(formData)
-        setLoading(false)
+        if (isFree) {
+            // Free item — use existing createOrder (auto-enroll)
+            const formData = new FormData()
+            formData.set('itemType', item.type)
+            formData.set('itemId', item.id)
 
-        if (!result.success) {
-            toast.error(result.error || 'Gagal membuat pesanan')
-            return
-        }
+            const result = await createOrder(formData)
+            setLoading(false)
 
-        if (result.data?.autoEnrolled) {
+            if (!result.success) {
+                toast.error(result.error || 'Gagal membuat pesanan')
+                return
+            }
+
             toast.success('Selamat! Anda berhasil mendaftar.')
             router.push(`/portal/my-courses/${item.id}`)
             return
         }
 
-        setOrderSuccess(result.data!)
+        // Paid item — use Xendit
+        const result = await createOrderWithXenditInvoice(item.type, item.id)
+        setLoading(false)
+
+        if (!result.success) {
+            toast.error(result.error || 'Gagal membuat invoice pembayaran')
+            return
+        }
+
+        // Redirect to Xendit hosted invoice page
+        window.location.href = result.data.invoiceUrl
     }
 
     // Already ordered
@@ -98,57 +111,24 @@ export function CheckoutForm({
                         <AlertCircle className="h-12 w-12 mx-auto text-yellow-500" />
                         <h2 className="text-xl font-bold">Pesanan Sedang Diproses</h2>
                         <p className="text-muted-foreground">
-                            Anda sudah memiliki pesanan untuk kursus ini. Menunggu konfirmasi pembayaran.
+                            Anda sudah memiliki pesanan untuk item ini. Selesaikan pembayaran untuk melanjutkan.
                         </p>
-                        <Link href="/portal/orders">
-                            <Button variant="outline" className="w-full mt-2">Lihat Pesanan Saya</Button>
-                        </Link>
-                    </CardContent>
-                </Card>
-            </div>
-        )
-    }
-
-    // Order success
-    if (orderSuccess) {
-        return (
-            <div className="flex min-h-[60vh] items-center justify-center px-4">
-                <Card className="w-full max-w-lg">
-                    <CardContent className="p-8 space-y-6 text-center">
-                        <CheckCircle className="h-16 w-16 mx-auto text-green-600" />
-                        <div>
-                            <h2 className="text-2xl font-bold">Pesanan Berhasil Dibuat!</h2>
-                            <p className="text-sm text-muted-foreground mt-1">
-                                ID Pesanan: {orderSuccess.orderId.slice(0, 12).toUpperCase()}
-                            </p>
-                        </div>
-
-                        <Card className="text-left">
-                            <CardHeader>
-                                <CardTitle className="text-base">Instruksi Pembayaran</CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-2 text-sm">
-                                <p>Transfer ke rekening berikut:</p>
-                                <div className="rounded-lg bg-muted p-3">
-                                    <p className="font-semibold">Bank BCA</p>
-                                    <p className="text-lg font-mono font-bold">123-456-7890</p>
-                                    <p className="text-muted-foreground">a.n. PT Sitamoto Academy</p>
-                                </div>
-                                <p className="font-semibold">
-                                    Total: {formatRupiah(item.effectivePrice)}
-                                </p>
-                                <p className="text-muted-foreground">
-                                    Setelah transfer, admin akan mengkonfirmasi pembayaran Anda.
-                                </p>
-                            </CardContent>
-                        </Card>
-
-                        <div className="flex gap-3">
-                            <Link href="/portal/orders" className="flex-1">
-                                <Button variant="outline" className="w-full">Lihat Pesanan Saya</Button>
-                            </Link>
-                            <Link href="/" className="flex-1">
-                                <Button variant="ghost" className="w-full">Kembali ke Beranda</Button>
+                        <div className="flex flex-col gap-2 mt-2">
+                            {existingInvoiceUrl && (
+                                <Button
+                                    className="w-full"
+                                    onClick={() => { window.location.href = existingInvoiceUrl! }}
+                                >
+                                    Bayar Sekarang
+                                </Button>
+                            )}
+                            {existingOrderId && (
+                                <Link href={`/portal/orders/${existingOrderId}`}>
+                                    <Button variant="outline" className="w-full">Lihat Status Pesanan</Button>
+                                </Link>
+                            )}
+                            <Link href="/portal/orders">
+                                <Button variant="ghost" className="w-full">Lihat Semua Pesanan</Button>
                             </Link>
                         </div>
                     </CardContent>
@@ -236,12 +216,12 @@ export function CheckoutForm({
                             {loading ? (
                                 <>
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Memproses...
+                                    {isFree ? 'Memproses...' : 'Menyiapkan halaman pembayaran Xendit...'}
                                 </>
                             ) : isFree ? (
                                 'Ambil Gratis'
                             ) : (
-                                'Buat Pesanan'
+                                'Bayar Sekarang'
                             )}
                         </Button>
                     </CardContent>

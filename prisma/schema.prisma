@@ -534,11 +534,15 @@ model Order {
   itemTitle     String
   price         Decimal       @db.Decimal(12, 2)
   originalPrice Decimal       @db.Decimal(12, 2)
-  status        OrderStatus   @default(PENDING)
-  paidAt        DateTime?
-  notes         String?       @db.Text
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  status           OrderStatus   @default(PENDING)
+  paidAt           DateTime?
+  notes            String?       @db.Text
+  xenditInvoiceId  String?
+  xenditInvoiceUrl String?
+  paymentMethod    String?
+  paymentGateway   String?       @default("MANUAL")
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
   @@map("orders")
 }
