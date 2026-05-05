@@ -29,8 +29,8 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
     }
 
-    // external_id format: ORDER-{orderId}
-    const orderId = external_id.startsWith('ORDER-') ? external_id.slice(6) : null
+    // external_id format: invoice_{orderId}
+    const orderId = external_id.startsWith('invoice_') ? external_id.slice(8) : null
     if (!orderId) {
         return NextResponse.json({ error: 'Invalid external_id format' }, { status: 400 })
     }
