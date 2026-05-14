@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { submitAttempt } from '@/lib/actions/quiz-attempts'
 import { cn } from '@/lib/utils'
+import { FileUploadAnswer } from './file-upload-answer'
 
 interface QuizQuestion {
     id: string
@@ -36,6 +37,10 @@ interface QuizQuestion {
     points: number
     order: number
     options: { id: string; text: string }[]
+    allowedFileTypes?: string
+    maxFileSizeMB?: number
+    maxFileCount?: number
+    uploadInstructions?: string
 }
 
 interface QuizPlayerProps {
@@ -53,7 +58,7 @@ export function QuizPlayer({ attemptId, courseId, quiz }: QuizPlayerProps) {
     const router = useRouter()
     const [isPending, startTransition] = useTransition()
     const [currentIdx, setCurrentIdx] = useState(0)
-    const [answers, setAnswers] = useState<Record<string, { optionId?: string; essayText?: string }>>(
+    const [answers, setAnswers] = useState<Record<string, { optionId?: string; essayText?: string; uploadedFiles?: any[] }>>(
         {}
     )
     const [showConfirm, setShowConfirm] = useState(false)
@@ -86,7 +91,7 @@ export function QuizPlayer({ attemptId, courseId, quiz }: QuizPlayerProps) {
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
     }, [])
 
-    function setAnswer(questionId: string, data: { optionId?: string; essayText?: string }) {
+    function setAnswer(questionId: string, data: { optionId?: string; essayText?: string; uploadedFiles?: any[] }) {
         setAnswers((prev) => ({ ...prev, [questionId]: data }))
     }
 
@@ -138,7 +143,10 @@ export function QuizPlayer({ attemptId, courseId, quiz }: QuizPlayerProps) {
             {/* Question navigation dots */}
             <div className="flex flex-wrap gap-1.5">
                 {quiz.questions.map((q, idx) => {
-                    const isAnswered = !!answers[q.id]
+                    const answer = answers[q.id]
+                    const isAnswered = q.type === 'FILE_UPLOAD' 
+                        ? (answer?.uploadedFiles && answer.uploadedFiles.length > 0)
+                        : !!answer
                     const isCurrent = idx === currentIdx
                     return (
                         <button
@@ -163,7 +171,11 @@ export function QuizPlayer({ attemptId, courseId, quiz }: QuizPlayerProps) {
             <div className="rounded-lg border bg-card p-6">
                 <div className="mb-4 flex items-center justify-between">
                     <Badge variant="secondary">
-                        {currentQuestion.type === 'MULTIPLE_CHOICE' ? 'Pilihan Ganda' : 'Essay'}
+                        {currentQuestion.type === 'MULTIPLE_CHOICE' 
+                            ? 'Pilihan Ganda' 
+                            : currentQuestion.type === 'ESSAY' 
+                            ? 'Essay' 
+                            : 'File Upload'}
                     </Badge>
                     <span className="text-xs text-muted-foreground">{currentQuestion.points} poin</span>
                 </div>
@@ -200,7 +212,7 @@ export function QuizPlayer({ attemptId, courseId, quiz }: QuizPlayerProps) {
                             ))}
                         </div>
                     </RadioGroup>
-                ) : (
+                ) : currentQuestion.type === 'ESSAY' ? (
                     <div className="space-y-2">
                         <Label>Jawaban Anda</Label>
                         <Textarea
@@ -212,7 +224,18 @@ export function QuizPlayer({ attemptId, courseId, quiz }: QuizPlayerProps) {
                             rows={6}
                         />
                     </div>
-                )}
+                ) : currentQuestion.type === 'FILE_UPLOAD' ? (
+                    <FileUploadAnswer
+                        attemptId={attemptId}
+                        questionId={currentQuestion.id}
+                        allowedFileTypes={currentQuestion.allowedFileTypes ? JSON.parse(currentQuestion.allowedFileTypes) : []}
+                        maxFileSizeMB={currentQuestion.maxFileSizeMB ?? 10}
+                        maxFileCount={currentQuestion.maxFileCount ?? 1}
+                        uploadInstructions={currentQuestion.uploadInstructions}
+                        existingFiles={answers[currentQuestion.id]?.uploadedFiles ?? []}
+                        onFilesChange={(files) => setAnswer(currentQuestion.id, { uploadedFiles: files })}
+                    />
+                ) : null}
             </div>
 
             {/* Navigation + Submit */}

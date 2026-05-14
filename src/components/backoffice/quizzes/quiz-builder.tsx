@@ -182,7 +182,11 @@ export function QuizBuilder({ courseId, quizzes, canEdit }: QuizBuilderProps) {
                                             <p className="text-sm">{question.text}</p>
                                             <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                                                 <Badge variant="secondary" className="text-xs">
-                                                    {question.type === 'MULTIPLE_CHOICE' ? 'Pilihan Ganda' : 'Essay'}
+                                                    {question.type === 'MULTIPLE_CHOICE' 
+                                                        ? 'Pilihan Ganda' 
+                                                        : question.type === 'ESSAY' 
+                                                        ? 'Essay' 
+                                                        : 'File Upload'}
                                                 </Badge>
                                                 <span>{question.points} poin</span>
                                                 {question.type === 'MULTIPLE_CHOICE' && (

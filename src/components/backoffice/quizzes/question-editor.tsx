@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
     Select,
     SelectContent,
@@ -30,10 +31,26 @@ interface QuestionEditorProps {
         text: string
         points: number
         options: { text: string; isCorrect: boolean }[]
+        allowedFileTypes?: string
+        maxFileSizeMB?: number
+        maxFileCount?: number
+        uploadInstructions?: string
     }
     onSuccess?: () => void
     onCancel?: () => void
 }
+
+const FILE_TYPE_OPTIONS = [
+    { value: 'pdf', label: 'PDF' },
+    { value: 'docx', label: 'DOCX' },
+    { value: 'doc', label: 'DOC' },
+    { value: 'jpg', label: 'JPG' },
+    { value: 'jpeg', label: 'JPEG' },
+    { value: 'png', label: 'PNG' },
+    { value: 'mp4', label: 'MP4' },
+    { value: 'zip', label: 'ZIP' },
+    { value: 'rar', label: 'RAR' },
+]
 
 export function QuestionEditor({
     quizId,
@@ -53,8 +70,24 @@ export function QuestionEditor({
             { text: '', isCorrect: false },
         ]
     )
+    
+    // FILE_UPLOAD specific states
+    const [allowedFileTypes, setAllowedFileTypes] = useState<string[]>(
+        question?.allowedFileTypes ? JSON.parse(question.allowedFileTypes) : ['pdf', 'docx', 'jpg', 'png']
+    )
+    const [maxFileSizeMB, setMaxFileSizeMB] = useState(question?.maxFileSizeMB ?? 10)
+    const [maxFileCount, setMaxFileCount] = useState(question?.maxFileCount ?? 1)
+    const [uploadInstructions, setUploadInstructions] = useState(question?.uploadInstructions ?? '')
 
     const correctIndex = options.findIndex((o) => o.isCorrect)
+    
+    function toggleFileType(fileType: string) {
+        setAllowedFileTypes((prev) =>
+            prev.includes(fileType)
+                ? prev.filter((t) => t !== fileType)
+                : [...prev, fileType]
+        )
+    }
 
     function addOption() {
         setOptions((prev) => [...prev, { text: '', isCorrect: false }])
@@ -99,13 +132,34 @@ export function QuestionEditor({
             }
         }
 
-        const data = {
+        if (type === 'FILE_UPLOAD') {
+            if (allowedFileTypes.length === 0) {
+                toast.error('Pilih minimal 1 tipe file yang diperbolehkan')
+                return
+            }
+            if (maxFileSizeMB < 1 || maxFileSizeMB > 50) {
+                toast.error('Ukuran file harus antara 1-50 MB')
+                return
+            }
+            if (maxFileCount < 1 || maxFileCount > 10) {
+                toast.error('Jumlah file harus antara 1-10')
+                return
+            }
+        }
+
+        const data: any = {
             type,
             text: text.trim(),
             points,
-            ...(type === 'MULTIPLE_CHOICE'
-                ? { options: options.filter((o) => o.text.trim()) }
-                : {}),
+        }
+
+        if (type === 'MULTIPLE_CHOICE') {
+            data.options = options.filter((o) => o.text.trim())
+        } else if (type === 'FILE_UPLOAD') {
+            data.allowedFileTypes = JSON.stringify(allowedFileTypes)
+            data.maxFileSizeMB = maxFileSizeMB
+            data.maxFileCount = maxFileCount
+            data.uploadInstructions = uploadInstructions.trim() || null
         }
 
         startTransition(async () => {
@@ -134,6 +188,7 @@ export function QuestionEditor({
                         <SelectContent>
                             <SelectItem value="MULTIPLE_CHOICE">Pilihan Ganda</SelectItem>
                             <SelectItem value="ESSAY">Essay</SelectItem>
+                            <SelectItem value="FILE_UPLOAD">File Upload</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
@@ -209,6 +264,67 @@ export function QuestionEditor({
             {type === 'ESSAY' && (
                 <div className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
                     Jawaban essay akan dinilai secara manual atau dengan bantuan AI
+                </div>
+            )}
+
+            {type === 'FILE_UPLOAD' && (
+                <div className="space-y-4 rounded-lg border p-4">
+                    <div className="space-y-2">
+                        <Label>Tipe File yang Diperbolehkan *</Label>
+                        <div className="grid grid-cols-3 gap-2">
+                            {FILE_TYPE_OPTIONS.map((fileType) => (
+                                <div key={fileType.value} className="flex items-center space-x-2">
+                                    <Checkbox
+                                        id={`file-${fileType.value}`}
+                                        checked={allowedFileTypes.includes(fileType.value)}
+                                        onCheckedChange={() => toggleFileType(fileType.value)}
+                                    />
+                                    <label
+                                        htmlFor={`file-${fileType.value}`}
+                                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                    >
+                                        {fileType.label}
+                                    </label>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="maxFileSize">Ukuran Maksimal (MB) *</Label>
+                            <Input
+                                id="maxFileSize"
+                                type="number"
+                                min={1}
+                                max={50}
+                                value={maxFileSizeMB}
+                                onChange={(e) => setMaxFileSizeMB(Number(e.target.value) || 1)}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="maxFileCount">Jumlah File *</Label>
+                            <Input
+                                id="maxFileCount"
+                                type="number"
+                                min={1}
+                                max={10}
+                                value={maxFileCount}
+                                onChange={(e) => setMaxFileCount(Number(e.target.value) || 1)}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="uploadInstructions">Instruksi Upload (Opsional)</Label>
+                        <Textarea
+                            id="uploadInstructions"
+                            value={uploadInstructions}
+                            onChange={(e) => setUploadInstructions(e.target.value)}
+                            placeholder="Contoh: Upload file dalam format PDF dengan nama file: NIM_Nama_Tugas1"
+                            rows={3}
+                        />
+                    </div>
                 </div>
             )}
 

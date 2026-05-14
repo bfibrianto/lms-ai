@@ -1,4 +1,4 @@
-import { S3Client } from '@aws-sdk/client-s3';
+import { S3Client, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 
@@ -26,6 +26,7 @@ export const s3 =
 if (process.env.NODE_ENV !== 'production') globalForS3.s3 = s3;
 
 export const S3_BUCKET_NAME = process.env.MINIO_BUCKET || process.env.S3_BUCKET_NAME || 'lms-media';
+export const QUIZ_SUBMISSIONS_BUCKET = 'quiz-submissions';
 
 /**
  * Generate a presigned URL for uploading a file directly from the client.
@@ -47,4 +48,55 @@ export async function getPresignedUploadUrl(
     const fileUrl = `${fullEndpoint}/${S3_BUCKET_NAME}/${fileName}`;
 
     return { url, fileUrl };
+}
+
+/**
+ * Upload file buffer to S3/MinIO for quiz submissions
+ */
+export async function uploadQuizFile(
+    attemptId: string,
+    questionId: string,
+    fileName: string,
+    fileBuffer: Buffer,
+    contentType: string
+) {
+    const key = `${attemptId}/${questionId}/${fileName}`;
+    
+    const command = new PutObjectCommand({
+        Bucket: QUIZ_SUBMISSIONS_BUCKET,
+        Key: key,
+        Body: fileBuffer,
+        ContentType: contentType,
+    });
+
+    await s3.send(command);
+
+    return {
+        key,
+        url: `${fullEndpoint}/${QUIZ_SUBMISSIONS_BUCKET}/${key}`,
+    };
+}
+
+/**
+ * Generate presigned URL for downloading quiz submission file (expires in 1 hour)
+ */
+export async function getQuizFileDownloadUrl(fileKey: string, expiresInSeconds = 3600) {
+    const command = new GetObjectCommand({
+        Bucket: QUIZ_SUBMISSIONS_BUCKET,
+        Key: fileKey,
+    });
+
+    return await getSignedUrl(s3, command, { expiresIn: expiresInSeconds });
+}
+
+/**
+ * Delete quiz submission file from S3/MinIO
+ */
+export async function deleteQuizFile(fileKey: string) {
+    const command = new DeleteObjectCommand({
+        Bucket: QUIZ_SUBMISSIONS_BUCKET,
+        Key: fileKey,
+    });
+
+    await s3.send(command);
 }
