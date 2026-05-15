@@ -50,27 +50,33 @@ export default async function NewLandingPage() {
 
             {/* Stats bar */}
             <section className="border-y bg-slate-50/50 dark:bg-slate-900/20">
-                <div className="mx-auto grid max-w-4xl grid-cols-3 gap-6 px-4 py-10">
-                    <div className="text-center">
+                <div className="mx-auto grid max-w-4xl grid-cols-3 gap-6 px-4 py-10 sm:py-12">
+                    <div className="text-center transition-transform duration-300 hover:scale-105">
                         <div className="flex items-center justify-center gap-2">
-                            <BookOpen className="h-5 w-5 text-blue-600" />
-                            <span className="text-3xl font-bold">{stats.courseCount}</span>
+                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/40">
+                                <BookOpen className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                            </div>
+                            <span className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">{stats.courseCount}</span>
                         </div>
-                        <p className="mt-1 text-sm text-muted-foreground">Kursus Tersedia</p>
+                        <p className="mt-2 text-sm text-muted-foreground">Kursus Tersedia</p>
                     </div>
-                    <div className="text-center">
+                    <div className="text-center transition-transform duration-300 hover:scale-105">
                         <div className="flex items-center justify-center gap-2">
-                            <Users className="h-5 w-5 text-emerald-600" />
-                            <span className="text-3xl font-bold">{stats.enrollmentCount}</span>
+                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/40">
+                                <Users className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                            </div>
+                            <span className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">{stats.enrollmentCount}</span>
                         </div>
-                        <p className="mt-1 text-sm text-muted-foreground">Total Enrollment</p>
+                        <p className="mt-2 text-sm text-muted-foreground">Total Enrollment</p>
                     </div>
-                    <div className="text-center">
+                    <div className="text-center transition-transform duration-300 hover:scale-105">
                         <div className="flex items-center justify-center gap-2">
-                            <Award className="h-5 w-5 text-amber-600" />
-                            <span className="text-3xl font-bold">{stats.userCount}</span>
+                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/40">
+                                <Award className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                            </div>
+                            <span className="text-3xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">{stats.userCount}</span>
                         </div>
-                        <p className="mt-1 text-sm text-muted-foreground">Pengguna Aktif</p>
+                        <p className="mt-2 text-sm text-muted-foreground">Pengguna Aktif</p>
                     </div>
                 </div>
             </section>
@@ -83,17 +89,17 @@ export default async function NewLandingPage() {
                 <section className="py-16 bg-slate-50/50 dark:bg-slate-900/20">
                     <div className="mx-auto max-w-6xl px-4">
                         <h2 className="text-2xl font-bold sm:text-3xl">Pelatihan Tersedia</h2>
-                        <p className="mt-1 text-muted-foreground">
+                        <p className="mt-1 text-sm text-muted-foreground sm:text-base">
                             Workshop, seminar, dan bootcamp yang bisa Anda ikuti
                         </p>
                         <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                             {trainings.map((t) => (
                                 <div
                                     key={t.id}
-                                    className="flex flex-col rounded-xl border bg-card p-5 transition-all hover:shadow-lg"
+                                    className="group flex flex-col rounded-xl border bg-card p-5 shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
                                 >
                                     <div className="flex items-start justify-between gap-2">
-                                        <h3 className="font-semibold line-clamp-2">{t.title}</h3>
+                                        <h3 className="font-semibold line-clamp-2 transition-colors duration-200 group-hover:text-primary">{t.title}</h3>
                                         <Badge variant="outline" className="shrink-0 text-xs">
                                             {t.type}
                                         </Badge>
@@ -140,14 +146,14 @@ export default async function NewLandingPage() {
                 <section className="py-16">
                     <div className="mx-auto max-w-6xl px-4">
                         <h2 className="text-2xl font-bold sm:text-3xl">Jalur Pembelajaran</h2>
-                        <p className="mt-1 text-muted-foreground">
+                        <p className="mt-1 text-sm text-muted-foreground sm:text-base">
                             Kumpulan kursus terstruktur untuk penguasaan mendalam
                         </p>
                         <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                             {learningPaths.map((lp) => (
                                 <div
                                     key={lp.id}
-                                    className="group flex flex-col overflow-hidden rounded-xl border bg-card transition-all hover:shadow-lg"
+                                    className="group flex flex-col overflow-hidden rounded-xl border bg-card shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
                                 >
                                     {lp.thumbnail ? (
                                         <div className="relative aspect-video w-full overflow-hidden bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-950 dark:to-purple-950">
@@ -155,17 +161,17 @@ export default async function NewLandingPage() {
                                                 src={lp.thumbnail}
                                                 alt={lp.title}
                                                 fill
-                                                className="object-cover transition-transform group-hover:scale-105"
+                                                className="object-cover transition-transform duration-500 group-hover:scale-110"
                                                 sizes="(max-width: 640px) 100vw, 33vw"
                                             />
                                         </div>
                                     ) : (
                                         <div className="flex aspect-video items-center justify-center bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-950 dark:to-purple-950">
-                                            <Route className="h-10 w-10 text-indigo-300 dark:text-indigo-700" />
+                                            <Route className="h-10 w-10 text-indigo-300 transition-transform duration-300 group-hover:scale-110 dark:text-indigo-700" />
                                         </div>
                                     )}
                                     <div className="flex flex-1 flex-col p-4">
-                                        <h3 className="font-semibold line-clamp-2 group-hover:text-primary">
+                                        <h3 className="font-semibold line-clamp-2 transition-colors duration-200 group-hover:text-primary">
                                             {lp.title}
                                         </h3>
                                         {lp.description && (
@@ -208,23 +214,28 @@ export default async function NewLandingPage() {
             </div>
 
             {/* CTA Section */}
-            <section className="py-20">
+            <section className="relative py-20 overflow-hidden">
+                {/* Background gradient */}
+                <div className="pointer-events-none absolute inset-0 -z-10">
+                    <div className="absolute left-1/2 top-1/2 h-[500px] w-[800px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-purple-500/10 blur-[100px]" />
+                </div>
+                
                 <div className="mx-auto max-w-3xl px-4 text-center">
-                    <h2 className="text-2xl font-bold sm:text-3xl">
+                    <h2 className="text-2xl font-bold sm:text-3xl lg:text-4xl">
                         Siap Mulai Belajar?
                     </h2>
-                    <p className="mt-3 text-muted-foreground">
+                    <p className="mt-3 text-sm text-muted-foreground sm:text-base lg:text-lg">
                         Gabung sekarang dan akses semua kursus, quiz, dan sertifikat.
                         Tingkatkan kompetensi tim Anda bersama Sitamoto Academy.
                     </p>
                     <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
-                        <Button size="lg" className="gap-2 px-8" asChild>
+                        <Button size="lg" className="group gap-2 px-8 shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-105" asChild>
                             <Link href="/auth/login">
-                                <GraduationCap className="h-5 w-5" />
+                                <GraduationCap className="h-5 w-5 transition-transform group-hover:scale-110" />
                                 Mulai Sekarang
                             </Link>
                         </Button>
-                        <Button size="lg" variant="outline" className="px-8" asChild>
+                        <Button size="lg" variant="outline" className="px-8 transition-all duration-300 hover:bg-accent hover:scale-105" asChild>
                             <a
                                 href="https://sitamoto.ai/en#contact-us"
                                 target="_blank"

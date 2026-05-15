@@ -1,11 +1,11 @@
 'use client'
 
-import { useRef } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { ChevronLeft, ChevronRight, BookOpen, Users } from 'lucide-react'
+import { ChevronLeft, ChevronRight, BookOpen, Users, Clock } from 'lucide-react'
 import type { PublishedCourse } from '@/lib/actions/courses'
 import { PriceDisplay } from '@/components/shared/price-display'
 
@@ -27,6 +27,8 @@ interface CourseCarouselProps {
 
 export function CourseCarousel({ courses }: CourseCarouselProps) {
     const scrollRef = useRef<HTMLDivElement>(null)
+    const [canScrollLeft, setCanScrollLeft] = useState(false)
+    const [canScrollRight, setCanScrollRight] = useState(false)
 
     function scroll(direction: 'left' | 'right') {
         if (!scrollRef.current) return
@@ -36,6 +38,26 @@ export function CourseCarousel({ courses }: CourseCarouselProps) {
             behavior: 'smooth',
         })
     }
+
+    function checkScroll() {
+        if (!scrollRef.current) return
+        const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current
+        setCanScrollLeft(scrollLeft > 0)
+        setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10)
+    }
+
+    useEffect(() => {
+        checkScroll()
+        const ref = scrollRef.current
+        if (ref) {
+            ref.addEventListener('scroll', checkScroll)
+            window.addEventListener('resize', checkScroll)
+            return () => {
+                ref.removeEventListener('scroll', checkScroll)
+                window.removeEventListener('resize', checkScroll)
+            }
+        }
+    }, [courses])
 
     if (courses.length === 0) {
         return (
@@ -60,15 +82,27 @@ export function CourseCarousel({ courses }: CourseCarouselProps) {
                 <div className="flex items-end justify-between gap-4">
                     <div>
                         <h2 className="text-2xl font-bold sm:text-3xl">Kursus Tersedia</h2>
-                        <p className="mt-1 text-muted-foreground">
+                        <p className="mt-1 text-sm text-muted-foreground sm:text-base">
                             Pilih kursus yang sesuai dengan kebutuhan pengembangan Anda
                         </p>
                     </div>
                     <div className="hidden gap-2 sm:flex">
-                        <Button variant="outline" size="icon" className="h-9 w-9 rounded-full" onClick={() => scroll('left')}>
+                        <Button 
+                            variant="outline" 
+                            size="icon" 
+                            className="h-9 w-9 rounded-full transition-all duration-200 hover:scale-110 disabled:opacity-30" 
+                            onClick={() => scroll('left')}
+                            disabled={!canScrollLeft}
+                        >
                             <ChevronLeft className="h-4 w-4" />
                         </Button>
-                        <Button variant="outline" size="icon" className="h-9 w-9 rounded-full" onClick={() => scroll('right')}>
+                        <Button 
+                            variant="outline" 
+                            size="icon" 
+                            className="h-9 w-9 rounded-full transition-all duration-200 hover:scale-110 disabled:opacity-30" 
+                            onClick={() => scroll('right')}
+                            disabled={!canScrollRight}
+                        >
                             <ChevronRight className="h-4 w-4" />
                         </Button>
                     </div>
@@ -90,7 +124,7 @@ export function CourseCarousel({ courses }: CourseCarouselProps) {
                             <Link
                                 key={course.id}
                                 href={`/courses/${course.id}`}
-                                className="group flex w-[280px] shrink-0 flex-col overflow-hidden rounded-xl border bg-card transition-all hover:shadow-lg"
+                                className="group flex w-[280px] shrink-0 flex-col overflow-hidden rounded-xl border bg-card shadow-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
                                 style={{ scrollSnapAlign: 'start' }}
                             >
                                 {/* Thumbnail */}
@@ -100,19 +134,21 @@ export function CourseCarousel({ courses }: CourseCarouselProps) {
                                             src={course.thumbnail}
                                             alt={course.title}
                                             fill
-                                            className="object-cover transition-transform group-hover:scale-105"
+                                            className="object-cover transition-transform duration-500 group-hover:scale-110"
                                             sizes="280px"
                                         />
                                     ) : (
                                         <div className="flex h-full items-center justify-center">
-                                            <BookOpen className="h-10 w-10 text-blue-300 dark:text-blue-700" />
+                                            <BookOpen className="h-10 w-10 text-blue-300 transition-transform duration-300 group-hover:scale-110 dark:text-blue-700" />
                                         </div>
                                     )}
+                                    {/* Overlay gradient on hover */}
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                                 </div>
 
                                 {/* Content */}
                                 <div className="flex flex-1 flex-col p-4">
-                                    <h3 className="line-clamp-2 text-sm font-semibold leading-snug group-hover:text-primary">
+                                    <h3 className="line-clamp-2 text-sm font-semibold leading-snug transition-colors duration-200 group-hover:text-primary">
                                         {course.title}
                                     </h3>
                                     <p className="mt-1 text-xs text-muted-foreground">
@@ -120,17 +156,17 @@ export function CourseCarousel({ courses }: CourseCarouselProps) {
                                     </p>
 
                                     {/* Meta */}
-                                    <div className="mt-auto flex items-center gap-2 pt-3">
+                                    <div className="mt-auto space-y-2 pt-3">
                                         <Badge
                                             variant="secondary"
                                             className={`text-xs ${LEVEL_COLOR[course.level] ?? ''}`}
                                         >
                                             {LEVEL_LABEL[course.level] ?? course.level}
                                         </Badge>
-                                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
                                             <BookOpen className="h-3 w-3" />
-                                            {course._count.modules} modul · {totalLessons} pelajaran
-                                        </span>
+                                            <span>{course._count.modules} modul · {totalLessons} pelajaran</span>
+                                        </div>
                                     </div>
 
                                     {/* Enrollment count */}
