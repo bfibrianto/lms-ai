@@ -3,20 +3,6 @@
  * Constant ini digunakan untuk merender UI pilihan provider dan model.
  */
 export const AI_PROVIDERS = {
-    GEMINI: {
-        id: 'GEMINI',
-        label: 'Google Gemini',
-        icon: '✦',
-        models: [
-            { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash', description: 'Fast, cost-effective, great for most tasks' },
-            { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', description: 'Latest standard model, excellent performance' },
-            { id: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite', description: 'Fastest, lowest cost for simple tasks' },
-            { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', description: 'Advanced reasoning, best for complex logic' },
-            { id: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro', description: 'Legacy advanced reasoning' },
-        ],
-        keyPlaceholder: 'AIzaSy...',
-        docsUrl: 'https://aistudio.google.com/app/apikey',
-    },
     OPENAI: {
         id: 'OPENAI',
         label: 'OpenAI',
@@ -53,6 +39,14 @@ export const AI_PROVIDERS = {
         ],
         keyPlaceholder: 'sk-...',
         docsUrl: 'https://platform.deepseek.com/api_keys',
+    },
+    CUSTOM: {
+        id: 'CUSTOM',
+        label: 'Custom Provider',
+        icon: '⚙️',
+        models: [], // Will be populated from database
+        keyPlaceholder: 'sk-...',
+        docsUrl: '#',
     },
 } as const;
 

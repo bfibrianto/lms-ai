@@ -7,11 +7,14 @@ import { revalidatePath } from 'next/cache';
 
 export interface AiProviderView {
     id: string;
-    provider: string;       // 'GEMINI' | 'OPENAI' | ...
-    maskedApiKey: string;   // 'AIza****xxYz'
+    provider: string;       // 'OPENAI' | 'ANTHROPIC' | 'DEEPSEEK' | 'CUSTOM'
+    maskedApiKey: string;   // 'sk-****xxYz'
     model: string;
     isActive: boolean;
     updatedAt: Date;
+    customName?: string;    // For CUSTOM provider
+    apiUrl?: string;        // For CUSTOM provider
+    models?: any;           // For CUSTOM provider - array of model objects
 }
 
 /**
@@ -35,6 +38,9 @@ export async function getAiProviders(): Promise<AiProviderView[]> {
         model: p.model,
         isActive: p.isActive,
         updatedAt: p.updatedAt,
+        customName: p.customName || undefined,
+        apiUrl: p.apiUrl || undefined,
+        models: p.models || undefined,
     }));
 }
 
@@ -77,6 +83,55 @@ export async function saveAiProvider(data: {
     } catch (error: any) {
         console.error('Failed to save AI provider:', error);
         return { success: false, error: 'Gagal menyimpan konfigurasi provider API.' };
+    }
+}
+
+/**
+ * Saves or updates a custom AI provider configuration.
+ */
+export async function saveCustomAiProvider(data: {
+    customName: string;
+    apiUrl: string;
+    apiKey: string;
+    models: Array<{ id: string; label: string; description: string }>;
+}) {
+    const session = await auth();
+    if (!session || session.user.role !== 'SUPER_ADMIN') {
+        return { success: false, error: 'Unauthorized' };
+    }
+
+    if (!data.customName || !data.apiUrl || !data.apiKey || !data.models.length) {
+        return { success: false, error: 'Semua field wajib diisi.' };
+    }
+
+    try {
+        const encryptedKey = encrypt(data.apiKey);
+
+        await db.aiProvider.upsert({
+            where: { provider: 'CUSTOM' },
+            update: {
+                apiKey: encryptedKey,
+                model: data.models[0].id, // Default to first model
+                customName: data.customName,
+                apiUrl: data.apiUrl,
+                models: data.models,
+            },
+            create: {
+                provider: 'CUSTOM',
+                apiKey: encryptedKey,
+                model: data.models[0].id,
+                customName: data.customName,
+                apiUrl: data.apiUrl,
+                models: data.models,
+                isActive: false,
+            },
+        });
+
+        revalidatePath('/backoffice/settings');
+        return { success: true };
+    } catch (error: any) {
+        console.error('Failed to save custom AI provider:', error);
+        return { success: false, error: 'Gagal menyimpan konfigurasi custom provider.' };
     }
 }
 
@@ -218,20 +273,7 @@ export async function testAiConnection(provider: string) {
         let errorMessage = '';
 
         try {
-            if (provider === 'GEMINI') {
-                // Test Google Gemini (REST API format)
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/${record.model}:generateContent?key=${apiKey}`;
-                const res = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: "Hello, just reply with 'OK'." }] }]
-                    })
-                });
-                if (res.ok) success = true;
-                else errorMessage = `API Error: ${res.status} ${res.statusText}`;
-            }
-            else if (provider === 'OPENAI') {
+            if (provider === 'OPENAI') {
                 const res = await fetch('https://api.openai.com/v1/models', {
                     headers: { 'Authorization': `Bearer ${apiKey}` }
                 });
@@ -257,6 +299,16 @@ export async function testAiConnection(provider: string) {
             }
             else if (provider === 'DEEPSEEK') {
                 const res = await fetch('https://api.deepseek.com/models', {
+                    headers: { 'Authorization': `Bearer ${apiKey}` }
+                });
+                if (res.ok) success = true;
+                else errorMessage = `API Error: ${res.status} ${res.statusText}`;
+            }
+            else if (provider === 'CUSTOM') {
+                // Test custom provider using OpenAI-compatible API
+                const baseUrl = record.apiUrl || '';
+                const testUrl = baseUrl.endsWith('/') ? `${baseUrl}models` : `${baseUrl}/models`;
+                const res = await fetch(testUrl, {
                     headers: { 'Authorization': `Bearer ${apiKey}` }
                 });
                 if (res.ok) success = true;
