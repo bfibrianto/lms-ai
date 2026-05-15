@@ -3,13 +3,15 @@
 import { AI_PROVIDERS, AiProviderId } from '@/lib/ai-providers';
 import { AiProviderView } from '@/lib/actions/ai-providers';
 import { AiProviderCard } from './ai-provider-card';
+import { CustomAiProviderCard } from './custom-ai-provider-card';
 
 interface AiProviderSectionProps {
     configurations: AiProviderView[];
 }
 
 export function AiProviderSection({ configurations }: AiProviderSectionProps) {
-    const providerIds: AiProviderId[] = ['GEMINI', 'OPENAI', 'ANTHROPIC', 'DEEPSEEK'];
+    const providerIds: AiProviderId[] = ['OPENAI', 'ANTHROPIC', 'DEEPSEEK'];
+    const customConfig = configurations.find(c => c.provider === 'CUSTOM');
 
     return (
         <div className="space-y-4 mb-8">
@@ -25,6 +27,12 @@ export function AiProviderSection({ configurations }: AiProviderSectionProps) {
                     );
                 })}
             </div>
+            
+            <div className="mt-6">
+                <h4 className="text-sm font-medium mb-3">Custom Provider (OpenAI Compatible)</h4>
+                <CustomAiProviderCard config={customConfig} />
+            </div>
+
             {configurations.filter(c => c.isActive).length === 0 && (
                 <div className="p-4 border border-destructive/50 bg-destructive/10 text-destructive rounded-lg text-sm flex items-start gap-3">
                     <span className="text-xl">⚠️</span>
