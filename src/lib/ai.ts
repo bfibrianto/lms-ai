@@ -1,6 +1,6 @@
 import { genkit, z, Genkit } from 'genkit';
 import { googleAI, gemini } from '@genkit-ai/googleai';
-import { openAI } from 'genkitx-openai';
+import { openAI, type ModelDefinition } from 'genkitx-openai';
 import { anthropic } from 'genkitx-anthropic';
 import { db } from '@/lib/db';
 import { decrypt } from '@/lib/encryption';
@@ -50,6 +50,45 @@ export async function getAiClient(): Promise<AiClientData> {
                 });
                 resolvedModel = `openai/${modelId}`;
                 break;
+            case 'CUSTOM': {
+                // Custom OpenAI-compatible provider (e.g. OpenRouter, LM Studio, Ollama, etc.)
+                let baseUrl = (activeProvider.apiUrl || '').trim().replace(/\/$/, '');
+                if (baseUrl.endsWith('/chat/completions')) {
+                    baseUrl = baseUrl.slice(0, -'/chat/completions'.length);
+                }
+                if (!baseUrl) {
+                    throw new Error('Custom AI provider tidak memiliki API URL yang valid.');
+                }
+                // Register the custom model explicitly so Genkit can route to it.
+                // genkitx-openai only pre-registers known OpenAI models; arbitrary IDs must be declared.
+                const customModelDef: ModelDefinition = {
+                    name: modelId,
+                    info: {
+                        label: modelId,
+                        supports: { multiturn: true, tools: false, media: false, systemRole: true, output: ['text'] },
+                    },
+                    configSchema: z.object({
+                        temperature: z.number().optional(),
+                        maxOutputTokens: z.number().optional(),
+                        topP: z.number().optional(),
+                        stopSequences: z.array(z.string()).optional(),
+                    }).passthrough(),
+                };
+                plugin = openAI({ 
+                    apiKey, 
+                    baseURL: baseUrl, 
+                    models: [customModelDef],
+                    defaultHeaders: {
+                        'HTTP-Referer': process.env.NEXTAUTH_URL || 'http://localhost:3000',
+                        'X-Title': 'LMS AI',
+                    },
+                });
+                // Must use "openai/<modelId>" so Genkit routes to the openai plugin.
+                // The plugin strips the "openai/" prefix before sending to the API.
+                resolvedModel = `openai/${modelId}`;
+                console.log('[getAiClient] CUSTOM provider:', { baseUrl, modelId, resolvedModel: `openai/${modelId}` });
+                break;
+            }
             default:
                 throw new Error(`Unsupported AI provider: ${activeProvider.provider}`);
         }

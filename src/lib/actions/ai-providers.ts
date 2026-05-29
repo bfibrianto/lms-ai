@@ -305,14 +305,67 @@ export async function testAiConnection(provider: string) {
                 else errorMessage = `API Error: ${res.status} ${res.statusText}`;
             }
             else if (provider === 'CUSTOM') {
-                // Test custom provider using OpenAI-compatible API
-                const baseUrl = record.apiUrl || '';
-                const testUrl = baseUrl.endsWith('/') ? `${baseUrl}models` : `${baseUrl}/models`;
+                // Normalize base URL: strip trailing slash and common endpoint suffixes
+                // so users can input either "https://host/v1" or "https://host/v1/chat/completions"
+                let baseUrl = (record.apiUrl || '').trim().replace(/\/$/, '');
+                if (baseUrl.endsWith('/chat/completions')) {
+                    baseUrl = baseUrl.slice(0, -'/chat/completions'.length);
+                }
+                if (baseUrl.endsWith('/models')) {
+                    baseUrl = baseUrl.slice(0, -'/models'.length);
+                }
+
+                const testUrl = `${baseUrl}/models`;
+                const chatUrl = `${baseUrl}/chat/completions`;
+                const modelId = record.model || (record.models as any[])?.[0]?.id || 'gpt-3.5-turbo';
+
+                console.log('[testAiConnection] CUSTOM provider debug:', {
+                    rawApiUrl: record.apiUrl,
+                    normalizedBaseUrl: baseUrl,
+                    testUrl,
+                    chatUrl,
+                    modelId,
+                });
+
                 const res = await fetch(testUrl, {
                     headers: { 'Authorization': `Bearer ${apiKey}` }
                 });
-                if (res.ok) success = true;
-                else errorMessage = `API Error: ${res.status} ${res.statusText}`;
+
+                console.log('[testAiConnection] /models response:', res.status, res.statusText);
+
+                // 200/2xx = success; 401/403 = server reachable but key invalid (still a valid connection)
+                // 404 on /models is common for some providers — fallback to chat/completions test
+                if (res.ok || res.status === 401 || res.status === 403) {
+                    success = true;
+                } else if (res.status === 404) {
+                    // Some providers don't expose /models — try a minimal chat completion
+                    const chatRes = await fetch(chatUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${apiKey}`,
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            model: modelId,
+                            max_tokens: 1,
+                            messages: [{ role: 'user', content: 'Hi' }],
+                        }),
+                    });
+
+                    console.log('[testAiConnection] /chat/completions response:', chatRes.status, chatRes.statusText);
+
+                    if (chatRes.ok || chatRes.status === 401 || chatRes.status === 403) {
+                        success = true;
+                    } else {
+                        const body = await chatRes.text().catch(() => '');
+                        console.log('[testAiConnection] /chat/completions body:', body);
+                        errorMessage = `API Error: ${chatRes.status} ${chatRes.statusText}`;
+                    }
+                } else {
+                    const body = await res.text().catch(() => '');
+                    console.log('[testAiConnection] /models body:', body);
+                    errorMessage = `API Error: ${res.status} ${res.statusText}`;
+                }
             }
         } catch (fetchError: any) {
             errorMessage = fetchError.message || 'Network error';
