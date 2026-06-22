@@ -359,6 +359,19 @@ export interface GenerateQuizQuestionsWithContextParams {
     questionTypes: Array<'MULTIPLE_CHOICE' | 'ESSAY'>
 }
 
+function extractJsonFromText(text: string): string {
+    const codeBlockMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/)
+    if (codeBlockMatch) return codeBlockMatch[1].trim()
+
+    const braceStart = text.indexOf('{')
+    const braceEnd = text.lastIndexOf('}')
+    if (braceStart !== -1 && braceEnd !== -1 && braceEnd > braceStart) {
+        return text.slice(braceStart, braceEnd + 1)
+    }
+
+    return text.trim()
+}
+
 export async function generateQuizQuestionsWithContext(
     params: GenerateQuizQuestionsWithContextParams
 ): Promise<GeneratedQuestion[]> {
@@ -378,7 +391,6 @@ KETENTUAN WAJIB:
 - Untuk ESSAY: buat pertanyaan terbuka yang mendorong analisis mendalam, sertakan rubric penilaian.
 - Soal ditulis dalam Bahasa Indonesia yang jelas dan tidak ambigu.
 - Variasikan tingkat kesulitan (mudah, sedang, sulit).
-- Output harus berupa JSON sesuai schema yang diminta.
 - JANGAN menambahkan sapaan atau teks di luar JSON output.`
     )
 
@@ -397,7 +409,31 @@ TIPE SOAL: ${typeInstruction}
 ${context}
 --- AKHIR KONTEKS MATERI ---
 
-Hasilkan tepat ${count} soal quiz berdasarkan konteks materi di atas.`
+Hasilkan tepat ${count} soal quiz berdasarkan konteks materi di atas.
+
+PENTING: Jawab HANYA dengan JSON valid (tanpa teks lain) dengan format:
+{
+  "questions": [
+    {
+      "type": "MULTIPLE_CHOICE",
+      "text": "Pertanyaan...",
+      "points": 1,
+      "explanation": "Penjelasan...",
+      "options": [
+        { "text": "Pilihan A", "isCorrect": true },
+        { "text": "Pilihan B", "isCorrect": false },
+        { "text": "Pilihan C", "isCorrect": false },
+        { "text": "Pilihan D", "isCorrect": false }
+      ]
+    },
+    {
+      "type": "ESSAY",
+      "text": "Pertanyaan essay...",
+      "points": 5,
+      "rubric": "Rubrik penilaian..."
+    }
+  ]
+}`
 
     let lastError: Error | null = null
     for (let attempt = 1; attempt <= 2; attempt++) {
@@ -405,27 +441,55 @@ Hasilkan tepat ${count} soal quiz berdasarkan konteks materi di atas.`
             const response = await ai.generate({
                 model,
                 prompt: fullPrompt,
-                output: { schema: GeneratedQuizOutputSchema },
                 config: { temperature: 0.5, maxOutputTokens: 4096 },
             })
 
-            if (response.output && response.output.questions && response.output.questions.length > 0) {
-                return response.output.questions
+            const rawText = response.text
+            if (!rawText) {
+                if (attempt === 1) {
+                    console.warn(`[generateQuizQuestionsWithContext] Attempt ${attempt}: empty text response. Retrying...`)
+                    continue
+                }
+                throw new Error('AI tidak memberikan respons.')
             }
 
-            if (attempt === 1) {
-                console.warn(`[generateQuizQuestionsWithContext] Attempt ${attempt} returned null/empty output. Retrying...`)
-                continue
+            const jsonStr = extractJsonFromText(rawText)
+            let parsed: unknown
+            try {
+                parsed = JSON.parse(jsonStr)
+            } catch (parseErr: any) {
+                console.error(`[generateQuizQuestionsWithContext] JSON parse error:`, parseErr.message)
+                console.error(`[generateQuizQuestionsWithContext] Raw text (first 500 chars):`, rawText.slice(0, 500))
+                if (attempt === 1) {
+                    lastError = new Error(`AI mengembalikan format tidak valid: ${parseErr.message}`)
+                    continue
+                }
+                throw new Error(`AI mengembalikan format JSON yang tidak valid: ${parseErr.message}`)
             }
 
-            throw new Error('AI tidak menghasilkan soal quiz yang valid setelah 2 percobaan. Silakan coba lagi.')
+            const result = GeneratedQuizOutputSchema.safeParse(parsed)
+            if (!result.success) {
+                console.error(`[generateQuizQuestionsWithContext] Zod validation error:`, result.error.message)
+                if (attempt === 1) {
+                    lastError = new Error(`Soal tidak sesuai format: ${result.error.message}`)
+                    continue
+                }
+                throw new Error(`Soal yang dihasilkan AI tidak sesuai format yang diharapkan.`)
+            }
+
+            if (result.data.questions.length === 0) {
+                if (attempt === 1) {
+                    console.warn(`[generateQuizQuestionsWithContext] Attempt ${attempt}: 0 questions. Retrying...`)
+                    continue
+                }
+                throw new Error('AI tidak menghasilkan soal quiz.')
+            }
+
+            return result.data.questions
         } catch (error: any) {
             lastError = error
             console.error(`[generateQuizQuestionsWithContext] Attempt ${attempt} failed:`, error.message)
-            
-            if (attempt === 2) {
-                break
-            }
+            if (attempt === 2) break
         }
     }
 
