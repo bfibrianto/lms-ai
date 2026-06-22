@@ -399,15 +399,37 @@ ${context}
 
 Hasilkan tepat ${count} soal quiz berdasarkan konteks materi di atas.`
 
-    const response = await ai.generate({
-        model,
-        prompt: fullPrompt,
-        output: { schema: GeneratedQuizOutputSchema },
-        config: { temperature: 0.5, maxOutputTokens: 4096 },
-    })
+    let lastError: Error | null = null
+    for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+            const response = await ai.generate({
+                model,
+                prompt: fullPrompt,
+                output: { schema: GeneratedQuizOutputSchema },
+                config: { temperature: 0.5, maxOutputTokens: 4096 },
+            })
 
-    if (!response.output) throw new Error('Gagal menghasilkan soal quiz.')
-    return response.output.questions
+            if (response.output && response.output.questions && response.output.questions.length > 0) {
+                return response.output.questions
+            }
+
+            if (attempt === 1) {
+                console.warn(`[generateQuizQuestionsWithContext] Attempt ${attempt} returned null/empty output. Retrying...`)
+                continue
+            }
+
+            throw new Error('AI tidak menghasilkan soal quiz yang valid setelah 2 percobaan. Silakan coba lagi.')
+        } catch (error: any) {
+            lastError = error
+            console.error(`[generateQuizQuestionsWithContext] Attempt ${attempt} failed:`, error.message)
+            
+            if (attempt === 2) {
+                break
+            }
+        }
+    }
+
+    throw new Error(`Gagal menghasilkan soal quiz: ${lastError?.message || 'Unknown error'}`)
 }
 
 const EssayScoreSchema = z.object({
