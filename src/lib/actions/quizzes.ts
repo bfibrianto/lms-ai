@@ -264,26 +264,26 @@ export async function bulkAddQuestions(
             const parsed = QuestionSchema.safeParse(q)
             if (!parsed.success) continue
 
-            await tx.question.create({
+            const createdQuestion = await tx.question.create({
                 data: {
                     quizId,
                     type: parsed.data.type as 'MULTIPLE_CHOICE' | 'ESSAY',
                     text: parsed.data.text,
                     points: parsed.data.points,
                     order: nextOrder++,
-                    ...(parsed.data.type === 'MULTIPLE_CHOICE' && parsed.data.options
-                        ? {
-                            options: {
-                                create: parsed.data.options.map((opt, idx) => ({
-                                    text: opt.text,
-                                    isCorrect: opt.isCorrect,
-                                    order: idx,
-                                })),
-                            },
-                        }
-                        : {}),
                 },
             })
+
+            if (parsed.data.type === 'MULTIPLE_CHOICE' && parsed.data.options && parsed.data.options.length > 0) {
+                await tx.questionOption.createMany({
+                    data: parsed.data.options.map((opt, idx) => ({
+                        questionId: createdQuestion.id,
+                        text: opt.text,
+                        isCorrect: opt.isCorrect,
+                        order: idx,
+                    })),
+                })
+            }
         }
     })
 
