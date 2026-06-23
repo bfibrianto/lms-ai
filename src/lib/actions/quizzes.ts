@@ -259,13 +259,23 @@ export async function bulkAddQuestions(
     })
     let nextOrder = (lastQuestion?.order ?? -1) + 1
 
-    await db.$transaction(async (tx) => {
-        for (const q of questions) {
-            const parsed = QuestionSchema.safeParse(q)
-            if (!parsed.success) continue
+    // Build all operations upfront, pre-generating IDs so we can reference
+    // questionId in options without waiting for the question insert to resolve.
+    // This allows using the array-based $transaction([...ops]) which sends all
+    // queries in a single round-trip and avoids the 5000ms interactive timeout.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ops: any[] = []
 
-            const createdQuestion = await tx.question.create({
+    for (const q of questions) {
+        const parsed = QuestionSchema.safeParse(q)
+        if (!parsed.success) continue
+
+        const questionId = crypto.randomUUID()
+
+        ops.push(
+            db.question.create({
                 data: {
+                    id: questionId,
                     quizId,
                     type: parsed.data.type as 'MULTIPLE_CHOICE' | 'ESSAY',
                     text: parsed.data.text,
@@ -273,19 +283,25 @@ export async function bulkAddQuestions(
                     order: nextOrder++,
                 },
             })
+        )
 
-            if (parsed.data.type === 'MULTIPLE_CHOICE' && parsed.data.options && parsed.data.options.length > 0) {
-                await tx.questionOption.createMany({
+        if (parsed.data.type === 'MULTIPLE_CHOICE' && parsed.data.options && parsed.data.options.length > 0) {
+            ops.push(
+                db.questionOption.createMany({
                     data: parsed.data.options.map((opt, idx) => ({
-                        questionId: createdQuestion.id,
+                        questionId,
                         text: opt.text,
                         isCorrect: opt.isCorrect,
                         order: idx,
                     })),
                 })
-            }
+            )
         }
-    })
+    }
+
+    if (ops.length > 0) {
+        await db.$transaction(ops)
+    }
 
     const quiz = await db.quiz.findUnique({
         where: { id: quizId },
