@@ -359,6 +359,113 @@ export interface GenerateQuizQuestionsWithContextParams {
     questionTypes: Array<'MULTIPLE_CHOICE' | 'ESSAY'>
 }
 
+function extractJsonFromText(text: string): string {
+    if (typeof text !== 'string' || text.trim() === '') return ''
+
+    const codeBlockMatch = text.match(/```(?:json)?\s*\n([\s\S]*?)\n?```/)
+    if (codeBlockMatch) return codeBlockMatch[1].trim()
+
+    const openFence = text.match(/```(?:json)?\s*\n([\s\S]*)$/m)
+    if (openFence) {
+        const candidate = openFence[1].trim()
+        if (candidate.includes('"questions"')) return candidate
+    }
+
+    const braceStart = text.indexOf('{')
+    if (braceStart !== -1) return text.slice(braceStart).trim()
+
+    return text.trim()
+}
+
+function tryRepairTruncatedJson(jsonStr: string): string {
+    const s = jsonStr.trim()
+
+    const stack: string[] = []
+    let inString = false
+    let escape = false
+    let lastSafePos = -1
+
+    for (let i = 0; i < s.length; i++) {
+        const c = s[i]
+        if (escape) { escape = false; continue }
+        if (inString) {
+            if (c === '\\') { escape = true; continue }
+            if (c === '"') { inString = false }
+            continue
+        }
+        if (c === '"') { inString = true; continue }
+        if (c === '\\') { escape = true; continue }
+        if (c === '{' || c === '[') {
+            stack.push(c)
+        } else if (c === '}') {
+            if (stack.length && stack[stack.length - 1] === '{') stack.pop()
+        } else if (c === ']') {
+            if (stack.length && stack[stack.length - 1] === '[') stack.pop()
+        }
+        if (c === '}' || c === ']' || c === ',') lastSafePos = i
+    }
+
+    if (lastSafePos === -1) return jsonStr
+
+    let truncated = s.slice(0, lastSafePos + 1).replace(/,\s*$/, '')
+
+    stack.length = 0
+    inString = false
+    escape = false
+    for (let i = 0; i < truncated.length; i++) {
+        const c = truncated[i]
+        if (escape) { escape = false; continue }
+        if (inString) {
+            if (c === '\\') { escape = true; continue }
+            if (c === '"') { inString = false }
+            continue
+        }
+        if (c === '"') { inString = true; continue }
+        if (c === '\\') { escape = true; continue }
+        if (c === '{' || c === '[') stack.push(c)
+        else if (c === '}') { if (stack.length && stack[stack.length - 1] === '{') stack.pop() }
+        else if (c === ']') { if (stack.length && stack[stack.length - 1] === '[') stack.pop() }
+    }
+
+    let suffix = ''
+    while (stack.length) {
+        const top = stack.pop()
+        suffix += (top === '{') ? '}' : ']'
+    }
+
+    return truncated + suffix
+}
+
+type GeneratedQuizOutput = z.infer<typeof GeneratedQuizOutputSchema>
+
+function parseQuizJson(rawText: string): GeneratedQuizOutput | null {
+    if (!rawText || rawText.trim() === '') return null
+
+    const jsonStr = extractJsonFromText(rawText)
+    if (!jsonStr) return null
+
+    let parsed: unknown
+    try {
+        parsed = JSON.parse(jsonStr)
+    } catch {
+        const repaired = tryRepairTruncatedJson(jsonStr)
+        try {
+            parsed = JSON.parse(repaired)
+        } catch (repairErr: any) {
+            console.error('[parseQuizJson] Repair attempt failed:', repairErr.message)
+            return null
+        }
+    }
+
+    const result = GeneratedQuizOutputSchema.safeParse(parsed)
+    if (!result.success) {
+        console.error('[parseQuizJson] Zod validation failed:', result.error.message)
+        return null
+    }
+
+    return result.data
+}
+
 export async function generateQuizQuestionsWithContext(
     params: GenerateQuizQuestionsWithContextParams
 ): Promise<GeneratedQuestion[]> {
@@ -378,7 +485,6 @@ KETENTUAN WAJIB:
 - Untuk ESSAY: buat pertanyaan terbuka yang mendorong analisis mendalam, sertakan rubric penilaian.
 - Soal ditulis dalam Bahasa Indonesia yang jelas dan tidak ambigu.
 - Variasikan tingkat kesulitan (mudah, sedang, sulit).
-- Output harus berupa JSON sesuai schema yang diminta.
 - JANGAN menambahkan sapaan atau teks di luar JSON output.`
     )
 
@@ -397,17 +503,80 @@ TIPE SOAL: ${typeInstruction}
 ${context}
 --- AKHIR KONTEKS MATERI ---
 
-Hasilkan tepat ${count} soal quiz berdasarkan konteks materi di atas.`
+Hasilkan tepat ${count} soal quiz berdasarkan konteks materi di atas.
 
-    const response = await ai.generate({
-        model,
-        prompt: fullPrompt,
-        output: { schema: GeneratedQuizOutputSchema },
-        config: { temperature: 0.5, maxOutputTokens: 4096 },
-    })
+PENTING: Jawab HANYA dengan JSON valid (tanpa teks lain) dengan format:
+{
+  "questions": [
+    {
+      "type": "MULTIPLE_CHOICE",
+      "text": "Pertanyaan...",
+      "points": 1,
+      "explanation": "Penjelasan...",
+      "options": [
+        { "text": "Pilihan A", "isCorrect": true },
+        { "text": "Pilihan B", "isCorrect": false },
+        { "text": "Pilihan C", "isCorrect": false },
+        { "text": "Pilihan D", "isCorrect": false }
+      ]
+    },
+    {
+      "type": "ESSAY",
+      "text": "Pertanyaan essay...",
+      "points": 5,
+      "rubric": "Rubrik penilaian..."
+    }
+  ]
+}`
 
-    if (!response.output) throw new Error('Gagal menghasilkan soal quiz.')
-    return response.output.questions
+    let lastError: Error | null = null
+    const maxAttempts = 3
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            const response = await ai.generate({
+                model,
+                prompt: fullPrompt,
+                config: { temperature: 0.5, maxOutputTokens: 24576 },
+            })
+
+            const rawText = response.text
+            if (!rawText) {
+                if (attempt < maxAttempts) {
+                    console.warn(`[generateQuizQuestionsWithContext] Attempt ${attempt}: empty response. Retrying...`)
+                    continue
+                }
+                throw new Error('AI tidak memberikan respons.')
+            }
+
+            const parsed = parseQuizJson(rawText)
+            if (!parsed) {
+                if (attempt < maxAttempts) {
+                    console.warn(`[generateQuizQuestionsWithContext] Attempt ${attempt}: parse failed. Retrying... Raw (first 300 chars):`, rawText.slice(0, 300))
+                    continue
+                }
+                throw new Error('AI mengembalikan format JSON yang tidak valid setelah 3 percobaan.')
+            }
+
+            if (parsed.questions.length === 0) {
+                if (attempt < maxAttempts) {
+                    console.warn(`[generateQuizQuestionsWithContext] Attempt ${attempt}: 0 questions. Retrying...`)
+                    continue
+                }
+                throw new Error('AI tidak menghasilkan soal quiz.')
+            }
+
+            if (attempt > 1) {
+                console.log(`[generateQuizQuestionsWithContext] Success on attempt ${attempt} with ${parsed.questions.length} questions.`)
+            }
+            return parsed.questions
+        } catch (error: any) {
+            lastError = error
+            console.error(`[generateQuizQuestionsWithContext] Attempt ${attempt} failed:`, error.message)
+            if (attempt === maxAttempts) break
+        }
+    }
+
+    throw new Error(`Gagal menghasilkan soal quiz: ${lastError?.message || 'Unknown error'}`)
 }
 
 const EssayScoreSchema = z.object({
