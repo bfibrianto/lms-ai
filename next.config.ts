@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   images: {
     remotePatterns: [
       {
@@ -18,6 +19,11 @@ const nextConfig: NextConfig = {
         protocol: 'http',
         hostname: '109.199.120.180',
         port: '9004',
+        pathname: '/**',
+      },
+      {
+        protocol: (process.env.MINIO_USE_SSL === 'true' ? 'https' : 'http') as 'http' | 'https',
+        hostname: process.env.RUSTFS_DOMAIN || 'rustfs.sitamoto.ai',
         pathname: '/**',
       }
     ],

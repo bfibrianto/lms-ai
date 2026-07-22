@@ -1,0 +1,180 @@
+# ============================================
+# Docker Compose - Production
+# LMS AI (Next.js standalone) + Redis + RustFS
+# ============================================
+
+services:
+  # ------------------------------------------
+  # Application (Next.js standalone)
+  # ------------------------------------------
+  app:
+    image: ${IMAGE_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG:-latest}
+    container_name: ${CONTAINER_NAME}
+    restart: unless-stopped
+    networks:
+      - default
+      - proxy
+      - database
+    extra_hosts:
+      - "${RUSTFS_DOMAIN}:host-gateway"
+    environment:
+      - NODE_ENV=production
+      # Database
+      - DATABASE_URL=${DATABASE_URL}
+      # Auth
+      - NEXTAUTH_URL=${NEXTAUTH_URL}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - AUTH_SECRET=${NEXTAUTH_SECRET}
+      - AUTH_TRUST_HOST=${AUTH_TRUST_HOST:-true}
+      - APP_URL=${NEXTAUTH_URL}
+      # Encryption (AI provider API keys)
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      # Object Storage (RustFS, S3-compatible — diakses via public domain lewat Caddy)
+      - MINIO_ENDPOINT=${RUSTFS_DOMAIN}
+      - MINIO_PORT=
+      - MINIO_USE_SSL=false
+      - MINIO_ACCESS_KEY=${RUSTFS_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${RUSTFS_SECRET_KEY}
+      - MINIO_BUCKET=${RUSTFS_BUCKET:-lms-media}
+      # Redis (queue/cache)
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      # Email (SMTP)
+      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_PORT=${EMAIL_PORT}
+      - EMAIL_USER=${EMAIL_USER}
+      - EMAIL_PASSWORD=${EMAIL_PASSWORD}
+      - EMAIL_FROM=${EMAIL_FROM}
+      # Payment (Xendit)
+      - XENDIT_SECRET_KEY=${XENDIT_SECRET_KEY}
+      - XENDIT_WEBHOOK_TOKEN=${XENDIT_WEBHOOK_TOKEN}
+      # AI
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      # Business info
+      - BUSINESS_NAME=${BUSINESS_NAME:-Sitamoto Academy}
+      - BUSINESS_ADDRESS=${BUSINESS_ADDRESS}
+      - BUSINESS_PHONE=${BUSINESS_PHONE}
+      - BUSINESS_EMAIL=${BUSINESS_EMAIL}
+      - BUSINESS_WHATSAPP=${BUSINESS_WHATSAPP}
+    labels:
+      caddy: http://${CADDY_DOMAIN}
+      caddy.reverse_proxy: "{{upstreams ${APP_PORT:-3000}}}"
+      caddy.reverse_proxy.header_up: "X-Forwarded-Proto https"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:${APP_PORT:-3000}/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    security_opt:
+      - no-new-privileges:true
+
+  # ------------------------------------------
+  # Redis (untuk future BullMQ queue/cache)
+  # ------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: ${CONTAINER_NAME}-redis
+    restart: unless-stopped
+    networks:
+      - default
+    volumes:
+      - redis_data:/data
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    security_opt:
+      - no-new-privileges:true
+
+  # ------------------------------------------
+  # RustFS (S3-compatible object storage)
+  # S3 API (9000) di-proxy Caddy via RUSTFS_DOMAIN
+  # ------------------------------------------
+  rustfs:
+    image: rustfs/rustfs:latest
+    container_name: ${CONTAINER_NAME}-rustfs
+    restart: unless-stopped
+    networks:
+      - default
+      - proxy
+    environment:
+      - RUSTFS_VOLUMES=/data
+      - RUSTFS_ADDRESS=:9000
+      - RUSTFS_CONSOLE_ADDRESS=:9001
+      - RUSTFS_CONSOLE_ENABLE=true
+      - RUSTFS_CONSOLE_CORS_ALLOWED_ORIGINS=*
+      - RUSTFS_ACCESS_KEY=${RUSTFS_ACCESS_KEY}
+      - RUSTFS_SECRET_KEY=${RUSTFS_SECRET_KEY}
+      - RUSTFS_OBS_LOGGER_LEVEL=info
+    volumes:
+      - rustfs_data:/data
+    labels:
+      caddy: http://${RUSTFS_DOMAIN}
+      caddy.reverse_proxy: "{{upstreams 9000}}"
+      caddy.reverse_proxy.header_up: "X-Forwarded-Proto https"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    security_opt:
+      - no-new-privileges:true
+
+  # ------------------------------------------
+  # RustFS Init (one-shot: buat bucket + policy + CORS)
+  # ------------------------------------------
+  rustfs-init:
+    image: amazon/aws-cli:latest
+    container_name: ${CONTAINER_NAME}-rustfs-init
+    depends_on:
+      rustfs:
+        condition: service_healthy
+    networks:
+      - default
+    environment:
+      - AWS_ACCESS_KEY_ID=${RUSTFS_ACCESS_KEY}
+      - AWS_SECRET_ACCESS_KEY=${RUSTFS_SECRET_KEY}
+      - AWS_DEFAULT_REGION=us-east-1
+    entrypoint: ["/bin/sh"]
+    command:
+      - -c
+      - |
+        set -e
+        ENDPOINT=http://rustfs:9000
+        BUCKET="${RUSTFS_BUCKET:-lms-media}"
+        echo "==> Creating buckets..."
+        aws --endpoint-url $$ENDPOINT s3api create-bucket --bucket "$$BUCKET" 2>/dev/null || echo "Bucket $$BUCKET already exists"
+        aws --endpoint-url $$ENDPOINT s3api create-bucket --bucket quiz-submissions 2>/dev/null || echo "Bucket quiz-submissions already exists"
+        echo "==> Setting public read policy on $$BUCKET..."
+        printf '%s' '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":"*","Action":"s3:GetObject","Resource":"arn:aws:s3:::'"$$BUCKET"'/*"}]}' > /tmp/policy.json
+        aws --endpoint-url $$ENDPOINT s3api put-bucket-policy --bucket "$$BUCKET" --policy file:///tmp/policy.json
+        echo "==> Setting CORS on $$BUCKET..."
+        printf '%s' '{"CORSRules":[{"AllowedHeaders":["*"],"AllowedMethods":["GET","PUT","POST","DELETE","HEAD"],"AllowedOrigins":["*"],"ExposeHeaders":["ETag"],"MaxAgeSeconds":3600}]}' > /tmp/cors.json
+        aws --endpoint-url $$ENDPOINT s3api put-bucket-cors --bucket "$$BUCKET" --cors-configuration file:///tmp/cors.json
+        echo "==> RustFS buckets initialized."
+    restart: "no"
+
+networks:
+  default:
+    driver: bridge
+  proxy:
+    external: true
+  database:
+    external: true
+
+volumes:
+  redis_data:
+  rustfs_data:

@@ -1,0 +1,91 @@
+stages:
+  - build
+  - deploy:prod
+
+variables:
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: ''
+  IMAGE_TAG: $CI_COMMIT_SHORT_SHA
+
+# ============================================
+# BUILD (production — build & push image)
+# ============================================
+build:
+  stage: build
+  image: docker:24-dind
+  services:
+    - docker:24-dind
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+  before_script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
+  script:
+    - echo "Building image $CI_REGISTRY_IMAGE:${IMAGE_TAG}"
+    # --build-arg untuk next.config.ts image remotePatterns (build-time config)
+    - >
+      docker build
+      --build-arg MINIO_ENDPOINT=$MINIO_ENDPOINT
+      --build-arg MINIO_PORT=$MINIO_PORT
+      --build-arg MINIO_USE_SSL=$MINIO_USE_SSL
+      --build-arg MINIO_BUCKET=$MINIO_BUCKET
+      --build-arg RUSTFS_DOMAIN=$RUSTFS_DOMAIN
+      -t $CI_REGISTRY_IMAGE:${IMAGE_TAG} .
+    - docker tag $CI_REGISTRY_IMAGE:${IMAGE_TAG} $CI_REGISTRY_IMAGE:latest
+    - docker push $CI_REGISTRY_IMAGE:${IMAGE_TAG}
+    - docker push $CI_REGISTRY_IMAGE:latest
+    - echo "Image pushed successfully"
+  tags:
+    - new-runner-guaca
+  only:
+    - master
+
+# ============================================
+# DEPLOY PRODUCTION (auto-deploy on merge to master)
+# ============================================
+deploy:production:
+  stage: deploy:prod
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache openssh-client
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY_PROD" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
+    - echo "$SSH_KNOWN_HOSTS_PROD" >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+  script:
+    - |
+      ssh $PROD_USERNAME@$PROD_IP CI_REGISTRY_USER="$CI_REGISTRY_USER" CI_REGISTRY_PASSWORD="$CI_REGISTRY_PASSWORD" GITLAB_TOKEN="$GITLAB_TOKEN" bash -s << 'EOF'
+        set -e
+
+        REPO_DIR="/home/vascomm/lms-ai"
+        REPO_URL="https://apps:${GITLAB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+
+        # Clone if first time (check .git, not just directory — .env may exist)
+        if [ ! -d "$REPO_DIR/.git" ]; then
+          if [ -d "$REPO_DIR" ]; then
+            TMP_DIR=$(mktemp -d)
+            git clone --branch master "$REPO_URL" "$TMP_DIR"
+            cp -a "$TMP_DIR/.git" "$REPO_DIR/"
+            rm -rf "$TMP_DIR"
+          else
+            git clone --branch master "$REPO_URL" "$REPO_DIR"
+          fi
+        fi
+
+        cd "$REPO_DIR"
+        git fetch --all
+        git checkout master 2>/dev/null || true
+        git reset --hard origin/master
+
+        echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
+        docker compose -f docker-compose.prod.yml pull
+        docker compose -f docker-compose.prod.yml up -d --force-recreate
+        docker image prune -f
+        echo "Production deploy finished at $(date)"
+      EOF
+  tags:
+    - new-runner-guaca
+  only:
+    - master
+  needs:
+    - build
