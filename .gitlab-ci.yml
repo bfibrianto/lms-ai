@@ -18,7 +18,7 @@ build:
   variables:
     DOCKER_HOST: tcp://docker:2375
   before_script:
-    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
+    - echo "$GITLAB_TOKEN" | docker login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
   script:
     - echo "Building image $CI_REGISTRY_IMAGE:${IMAGE_TAG}"
     # --build-arg untuk next.config.ts image remotePatterns (build-time config)
@@ -58,7 +58,7 @@ deploy:production:
         set -e
 
         REPO_DIR="/home/vascomm/lms-ai"
-        REPO_URL="https://apps:${GITLAB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+        REPO_URL="https://apps:${GITLAB_TOKEN}@gitlab.vascomm.co.id/bfibrianto/lms-ai.git"
 
         # Clone if first time (check .git, not just directory — .env may exist)
         if [ ! -d "$REPO_DIR/.git" ]; then
@@ -77,7 +77,7 @@ deploy:production:
         git checkout master 2>/dev/null || true
         git reset --hard origin/master
 
-        echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin $CI_REGISTRY
+        echo "$GITLAB_TOKEN" | docker login -u "$CI_REGISTRY_USER" --password-stdin gitlab.vascomm.co.id:4567
         docker compose -f docker-compose.prod.yml pull
         docker compose -f docker-compose.prod.yml up -d --force-recreate
         docker image prune -f
